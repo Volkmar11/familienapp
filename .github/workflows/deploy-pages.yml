@@ -1,0 +1,55 @@
+name: Deploy Marketing-Seite zu GitHub Pages
+
+on:
+  push:
+    branches: ["main", "claude/family-app-marketing-site-r2172k"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nur ein gleichzeitiges Deployment, neuere Läufe lösen ältere ab
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Pages konfigurieren (aktiviert Pages automatisch)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Seite zusammenstellen
+        run: |
+          mkdir -p _site/public
+          # Werbeseite als Startseite (index.html) und unter eigenem Namen bereitstellen
+          cp vermarktung.html _site/index.html
+          cp vermarktung.html _site/vermarktung.html
+          # App-Icons mitkopieren (werden von der Seite referenziert)
+          cp public/icon-180x180.png _site/public/ 2>/dev/null || true
+          cp public/icon-192x192.png _site/public/ 2>/dev/null || true
+          cp public/icon-512x512.png _site/public/ 2>/dev/null || true
+
+      - name: Artefakt hochladen
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Auf GitHub Pages veröffentlichen
+        id: deployment
+        uses: actions/deploy-pages@v4
