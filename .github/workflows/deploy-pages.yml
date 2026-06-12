@@ -22,10 +22,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Pages konfigurieren (aktiviert Pages automatisch)
+      - name: Pages konfigurieren
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Seite zusammenstellen
         run: |
