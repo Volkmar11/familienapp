@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#1e1b4b" />
+<meta name="description" content="Wochen Champion – die Familien-App, die Haushalt zum Spiel macht. Aufgaben, Punkte, Belohnungen & Wochen-Champion für die ganze Familie. Kostenlos testen." />
+<title>Wochen Champion – Die Familien-App, die Haushalt zum Spiel macht</title>
+<link rel="icon" href="public/icon-192x192.png" />
+<link rel="apple-touch-icon" href="public/icon-180x180.png" />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#1e1b4b; --bg2:#312e81; --indigo:#4338ca; --indigo2:#6366f1;
+    --gold:#fbbf24; --green:#22c55e; --pink:#f472b6; --orange:#f97316;
+    --txt:#ffffff; --txt2:#a5b4fc; --txt3:#c7d2fe; --muted:#6366f1;
+    --card:rgba(255,255,255,0.07); --cardBorder:rgba(255,255,255,0.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Fredoka',sans-serif;color:var(--txt);
+    background:linear-gradient(160deg,#1e1b4b 0%,#312e81 30%,#1e1b4b 70%,#312e81 100%);
+    background-attachment:fixed;overflow-x:hidden;line-height:1.5;
+  }
+  a{color:inherit;text-decoration:none;}
+  section{padding:80px 20px;max-width:1100px;margin:0 auto;}
+  h2.sec-title{font-size:clamp(28px,5vw,42px);font-weight:800;text-align:center;margin-bottom:12px;}
+  p.sec-sub{text-align:center;color:var(--txt2);font-size:clamp(15px,2.5vw,19px);max-width:640px;margin:0 auto 48px;}
+  .gold{color:var(--gold);}
+  .grad-text{background:linear-gradient(135deg,#fbbf24,#f472b6,#6366f1);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+  /* ── NAVBAR ── */
+  .nav{
+    position:fixed;top:0;left:0;right:0;z-index:100;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 24px;backdrop-filter:blur(14px);
+    background:rgba(30,27,75,0.72);border-bottom:1px solid rgba(255,255,255,0.08);
+    transition:padding .25s;
+  }
+  .nav .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;}
+  .nav .brand img{width:38px;height:38px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4);}
+  .nav .links{display:flex;align-items:center;gap:6px;}
+  .nav .links a{padding:8px 14px;border-radius:99px;font-size:14px;font-weight:600;color:var(--txt2);transition:.15s;}
+  .nav .links a:hover{color:#fff;background:rgba(255,255,255,0.08);}
+  .nav .cta{background:var(--gold);color:#1e1b4b !important;font-weight:700;box-shadow:0 4px 16px rgba(251,191,36,.4);}
+  .nav .cta:hover{transform:translateY(-1px);background:#fcc63f !important;}
+  .burger{display:none;background:none;border:none;color:#fff;font-size:24px;cursor:pointer;}
+  @media(max-width:860px){
+    .nav .links{position:fixed;top:66px;right:0;left:0;flex-direction:column;align-items:stretch;
+      background:rgba(30,27,75,0.97);backdrop-filter:blur(14px);padding:12px;gap:4px;
+      transform:translateY(-130%);transition:transform .3s;border-bottom:1px solid rgba(255,255,255,.08);}
+    .nav .links.open{transform:translateY(0);}
+    .nav .links a{padding:12px 16px;}
+    .burger{display:block;}
+  }
+
+  /* ── BUTTONS ── */
+  .btn{display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;font-family:inherit;
+    font-weight:700;border-radius:16px;padding:15px 28px;font-size:16px;transition:.18s;}
+  .btn-gold{background:var(--gold);color:#1e1b4b;box-shadow:0 8px 24px rgba(251,191,36,.35);}
+  .btn-gold:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(251,191,36,.5);}
+  .btn-ghost{background:rgba(255,255,255,0.08);color:#fff;border:1.5px solid rgba(255,255,255,0.18);}
+  .btn-ghost:hover{background:rgba(255,255,255,0.16);transform:translateY(-2px);}
+  .btn-indigo{background:linear-gradient(135deg,#4338ca,#6366f1);color:#fff;box-shadow:0 8px 24px rgba(99,102,241,.4);}
+  .btn-indigo:hover{transform:translateY(-2px);}
+
+  /* ── HERO ── */
+  .hero{display:flex;align-items:center;gap:48px;padding-top:140px;flex-wrap:wrap;justify-content:center;}
+  .hero-text{flex:1;min-width:300px;max-width:540px;}
+  .hero .pill{display:inline-flex;align-items:center;gap:8px;background:rgba(251,191,36,.15);
+    border:1px solid rgba(251,191,36,.3);color:var(--gold);padding:7px 16px;border-radius:99px;
+    font-size:13px;font-weight:600;margin-bottom:22px;}
+  .hero h1{font-size:clamp(34px,6vw,56px);font-weight:800;line-height:1.08;margin-bottom:20px;}
+  .hero h1 small{display:block;font-size:clamp(16px,3vw,22px);font-weight:600;color:var(--txt2);margin-top:10px;}
+  .hero p.lead{font-size:clamp(16px,2.5vw,19px);color:var(--txt3);margin-bottom:30px;}
+  .hero .actions{display:flex;gap:14px;flex-wrap:wrap;}
+  .hero .trust{display:flex;gap:22px;margin-top:30px;flex-wrap:wrap;color:var(--txt2);font-size:14px;}
+  .hero .trust b{color:#fff;font-size:22px;display:block;}
+
+  /* ── PHONE MOCKUP ── */
+  .phone-wrap{flex:0 0 auto;display:flex;justify-content:center;}
+  .phone{width:300px;height:610px;background:#0f0d2e;border-radius:42px;padding:12px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 2px rgba(255,255,255,.06);position:relative;}
+  .phone::before{content:"";position:absolute;top:22px;left:50%;transform:translateX(-50%);
+    width:120px;height:26px;background:#0f0d2e;border-radius:99px;z-index:6;}
+  .screen{width:100%;height:100%;border-radius:32px;overflow:hidden;position:relative;
+    background:linear-gradient(160deg,#1e1b4b,#312e81,#1e1b4b);display:flex;flex-direction:column;}
+  .screen-scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+  .screen-scroll::-webkit-scrollbar{display:none;}
+
+  /* mini app components */
+  .m-hdr{background:linear-gradient(135deg,#312e81,#4338ca,#6366f1);padding:34px 16px 18px;border-radius:0 0 26px 26px;}
+  .m-title{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;}
+  .m-sub{font-size:11px;opacity:.8;margin-top:2px;}
+  .m-champ{margin-top:12px;background:linear-gradient(135deg,rgba(251,191,36,.28),rgba(251,191,36,.1));
+    border:1px solid rgba(251,191,36,.3);border-radius:14px;padding:9px 12px;display:flex;align-items:center;gap:9px;}
+  .m-champ .emoji{font-size:24px;}
+  .m-champ .lbl{font-size:9px;opacity:.7;font-weight:600;}
+  .m-champ .val{font-size:14px;font-weight:800;}
+  .m-members{display:flex;gap:10px;padding:14px 14px 4px;overflow-x:auto;scrollbar-width:none;}
+  .m-members::-webkit-scrollbar{display:none;}
+  .m-member{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:9px 12px;border-radius:14px;min-width:64px;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.1);}
+  .m-member.active{border-width:2.5px;}
+  .m-member .av{font-size:34px;}
+  .m-member .nm{font-size:11px;font-weight:700;color:var(--txt2);}
+  .m-member .pts{font-size:10px;font-weight:700;color:#fff;border-radius:99px;padding:1px 8px;}
+  .m-tags{display:flex;gap:6px;padding:10px 14px 4px;overflow-x:auto;scrollbar-width:none;}
+  .m-tags::-webkit-scrollbar{display:none;}
+  .m-tag{flex:0 0 auto;padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;
+    background:rgba(255,255,255,.1);color:var(--txt2);}
+  .m-tag.on{background:var(--gold);color:#1e1b4b;}
+  .m-task{display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.06);
+    border:2px solid rgba(255,255,255,.12);border-radius:15px;padding:11px 13px;margin:0 14px 8px;}
+  .m-task.done{background:rgba(34,197,94,.12);border-color:#22c55e;opacity:.7;}
+  .m-task .ic{font-size:24px;width:34px;text-align:center;}
+  .m-task .t{flex:1;}
+  .m-task .t .n{font-weight:700;font-size:13px;}
+  .m-task .t .c{font-size:11px;color:var(--txt2);}
+  .m-task .b{background:var(--gold);color:#1e1b4b;border-radius:99px;padding:2px 9px;font-size:12px;font-weight:700;}
+  .m-task.done .b{background:#22c55e;color:#fff;}
+  .m-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:13px;margin:12px 14px;}
+  .m-card h4{font-size:14px;font-weight:800;margin-bottom:9px;}
+  .m-badges{display:flex;flex-wrap:wrap;gap:7px;}
+  .m-badge{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 5px;border-radius:11px;width:58px;}
+  .m-badge.e{background:rgba(251,191,36,.2);border:2px solid var(--gold);}
+  .m-badge.l{background:rgba(148,163,184,.15);border:2px solid rgba(148,163,184,.25);opacity:.65;}
+  .m-badge .be{font-size:20px;}
+  .m-badge .bn{font-size:8px;font-weight:700;text-align:center;line-height:1.1;color:var(--txt3);}
+  .m-reward{display:flex;align-items:center;gap:11px;background:rgba(255,255,255,.06);
+    border:2px solid #22c55e;border-radius:15px;padding:11px 13px;margin:0 14px 8px;}
+  .m-reward.locked{border-color:rgba(255,255,255,.08);opacity:.5;}
+  .m-reward .ic{font-size:28px;}
+  .m-reward .t{flex:1;}
+  .m-reward .t .n{font-weight:700;font-size:13px;}
+  .m-reward .t .c{font-size:11px;color:var(--txt2);}
+  .m-reward .b{background:#22c55e;color:#fff;border-radius:99px;padding:3px 11px;font-size:11px;font-weight:700;}
+  .m-bar{height:7px;background:rgba(255,255,255,.1);border-radius:99px;overflow:hidden;margin-top:5px;}
+  .m-bar > i{display:block;height:100%;border-radius:99px;}
+  .m-rank{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
+  .m-rank .pos{font-size:15px;width:22px;text-align:center;color:var(--gold);}
+  .m-rank .av{font-size:22px;}
+  .m-rank .info{flex:1;}
+  .m-rank .info .n{font-size:12px;font-weight:700;}
+  .m-rank .sc{font-weight:700;font-size:11px;border-radius:99px;padding:2px 9px;color:#fff;}
+  .m-chart{display:flex;gap:5px;align-items:flex-end;height:90px;margin-top:4px;}
+  .m-chart .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+  .m-chart .col .bar{width:100%;max-width:26px;border-radius:6px;}
+  .m-chart .col .d{font-size:9px;color:var(--muted);}
+  .m-set{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid rgba(255,255,255,.08);}
+  .m-set .sw{width:38px;height:22px;border-radius:99px;background:var(--gold);position:relative;flex:0 0 auto;}
+  .m-set .sw::after{content:"";position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:99px;background:#fff;}
+  .m-set .sw.off{background:rgba(255,255,255,.15);}
+  .m-set .sw.off::after{right:auto;left:2px;}
+  .m-set .txt .a{font-size:13px;font-weight:700;}
+  .m-set .txt .b{font-size:11px;color:var(--txt2);}
+  .m-rowbtn{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    border-radius:12px;padding:10px 12px;margin-bottom:7px;font-size:12px;color:var(--txt3);}
+  .m-rowbtn .x{margin-left:auto;color:var(--muted);}
+  /* phone bottom nav */
+  .m-nav{display:flex;justify-content:space-around;background:#1e1b4b;padding:9px 0 11px;
+    border-top:1px solid #312e81;border-radius:18px 18px 0 0;}
+  .m-nav button{background:none;border:none;font-family:inherit;cursor:pointer;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:600;padding:2px 8px;}
+  .m-nav button.on{color:var(--gold);font-weight:700;}
+  .m-nav button .ne{font-size:19px;}
+
+  /* ── SECTION: FEATURES ── */
+  .feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;}
+  .feat{background:var(--card);border:1px solid var(--cardBorder);border-radius:22px;padding:24px;
+    cursor:pointer;transition:.2s;position:relative;overflow:hidden;}
+  .feat:hover{transform:translateY(-4px);border-color:rgba(251,191,36,.4);background:rgba(255,255,255,.1);}
+  .feat .ico{font-size:38px;margin-bottom:14px;display:block;}
+  .feat h3{font-size:19px;font-weight:700;margin-bottom:8px;}
+  .feat p{color:var(--txt2);font-size:14px;}
+  .feat .more{color:var(--gold);font-size:13px;font-weight:700;margin-top:12px;display:inline-flex;align-items:center;gap:5px;}
+  .feat .detail{max-height:0;overflow:hidden;transition:max-height .35s ease;color:var(--txt3);font-size:13.5px;}
+  .feat.open .detail{max-height:320px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1);}
+  .feat.open .more .arr{transform:rotate(90deg);}
+  .feat .more .arr{transition:.25s;}
+
+  /* ── SECTION: DEMO / MENUS ── */
+  .demo-wrap{display:flex;gap:50px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  .demo-controls{flex:1;min-width:280px;max-width:460px;}
+  .menu-btn{display:flex;align-items:center;gap:16px;width:100%;text-align:left;cursor:pointer;
+    background:var(--card);border:1.5px solid var(--cardBorder);border-radius:18px;padding:18px 20px;
+    margin-bottom:12px;font-family:inherit;color:#fff;transition:.18s;}
+  .menu-btn:hover{background:rgba(255,255,255,.1);}
+  .menu-btn.active{border-color:var(--gold);background:rgba(251,191,36,.12);box-shadow:0 6px 22px rgba(251,191,36,.18);}
+  .menu-btn .e{font-size:30px;flex:0 0 auto;}
+  .menu-btn .mt h3{font-size:17px;font-weight:700;}
+  .menu-btn .mt p{font-size:13px;color:var(--txt2);}
+
+  /* ── SECTION: SETTINGS ── */
+  .set-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;}
+  .set-item{background:var(--card);border:1px solid var(--cardBorder);border-radius:18px;padding:20px;}
+  .set-item .e{font-size:28px;margin-bottom:10px;}
+  .set-item h4{font-size:16px;font-weight:700;margin-bottom:6px;}
+  .set-item p{font-size:13.5px;color:var(--txt2);}
+
+  /* ── SECTION: PRICING ── */
+  .price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:22px;align-items:stretch;}
+  .price{background:var(--card);border:1.5px solid var(--cardBorder);border-radius:24px;padding:32px 26px;
+    display:flex;flex-direction:column;position:relative;transition:.2s;}
+  .price:hover{transform:translateY(-5px);}
+  .price.featured{border-color:var(--gold);background:linear-gradient(160deg,rgba(251,191,36,.12),rgba(99,102,241,.1));
+    box-shadow:0 16px 50px rgba(251,191,36,.2);}
+  .price .tag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1e1b4b;
+    font-size:12px;font-weight:800;padding:5px 16px;border-radius:99px;white-space:nowrap;}
+  .price h3{font-size:21px;font-weight:800;margin-bottom:4px;}
+  .price .desc{color:var(--txt2);font-size:13.5px;margin-bottom:18px;min-height:40px;}
+  .price .amt{font-size:40px;font-weight:800;}
+  .price .amt small{font-size:15px;font-weight:600;color:var(--txt2);}
+  .price ul{list-style:none;margin:20px 0 24px;display:flex;flex-direction:column;gap:11px;}
+  .price li{display:flex;align-items:flex-start;gap:9px;font-size:14px;color:var(--txt3);}
+  .price li .ck{color:var(--green);font-weight:800;flex:0 0 auto;}
+  .price .btn{width:100%;justify-content:center;margin-top:auto;}
+
+  /* ── ACCORDION (FAQ / Research) ── */
+  .acc{max-width:760px;margin:0 auto;}
+  .acc-item{background:var(--card);border:1px solid var(--cardBorder);border-radius:16px;margin-bottom:12px;overflow:hidden;}
+  .acc-q{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 22px;cursor:pointer;
+    font-weight:700;font-size:16px;}
+  .acc-q .pm{font-size:22px;color:var(--gold);transition:.25s;flex:0 0 auto;}
+  .acc-item.open .acc-q .pm{transform:rotate(45deg);}
+  .acc-a{max-height:0;overflow:hidden;transition:max-height .3s ease;color:var(--txt3);font-size:14.5px;}
+  .acc-item.open .acc-a{max-height:400px;}
+  .acc-a > div{padding:0 22px 20px;}
+
+  /* ── INFO STRIP ── */
+  .strip{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;}
+  .strip .item{background:var(--card);border:1px solid var(--cardBorder);border-radius:18px;padding:22px 26px;
+    text-align:center;min-width:150px;flex:1;}
+  .strip .item .big{font-size:34px;font-weight:800;color:var(--gold);}
+  .strip .item .lbl{font-size:13px;color:var(--txt2);margin-top:4px;}
+
+  /* ── CTA BANNER ── */
+  .cta-banner{max-width:900px;margin:0 auto;background:linear-gradient(135deg,#4338ca,#6366f1);
+    border-radius:30px;padding:56px 32px;text-align:center;box-shadow:0 20px 60px rgba(99,102,241,.4);position:relative;overflow:hidden;}
+  .cta-banner::after{content:"🏆";position:absolute;font-size:200px;opacity:.08;right:-20px;bottom:-50px;}
+  .cta-banner h2{font-size:clamp(26px,4vw,38px);font-weight:800;margin-bottom:14px;}
+  .cta-banner p{color:rgba(255,255,255,.85);font-size:17px;margin-bottom:28px;}
+  .cta-banner .actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+
+  /* ── FOOTER + IMPRESSUM ── */
+  footer{background:rgba(15,13,46,.6);border-top:1px solid rgba(255,255,255,.08);padding:56px 20px 30px;}
+  .foot-grid{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:2fr 1fr 1fr;gap:40px;}
+  .foot-grid .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;margin-bottom:14px;}
+  .foot-grid .brand img{width:40px;height:40px;border-radius:11px;}
+  .foot-grid p{color:var(--txt2);font-size:14px;max-width:320px;}
+  .foot-grid h5{font-size:14px;font-weight:700;margin-bottom:14px;color:#fff;text-transform:uppercase;letter-spacing:.5px;}
+  .foot-grid ul{list-style:none;display:flex;flex-direction:column;gap:9px;}
+  .foot-grid ul a{color:var(--txt2);font-size:14px;transition:.15s;}
+  .foot-grid ul a:hover{color:var(--gold);}
+  .foot-bottom{max-width:1100px;margin:40px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.08);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:13px;}
+  @media(max-width:700px){.foot-grid{grid-template-columns:1fr;gap:28px;}}
+
+  /* ── MODAL ── */
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:300;
+    display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:linear-gradient(160deg,#1e1b4b,#312e81);border:1px solid rgba(255,255,255,.15);
+    border-radius:24px;padding:32px;max-width:560px;width:100%;max-height:85vh;overflow-y:auto;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);position:relative;}
+  .modal h2{font-size:24px;font-weight:800;margin-bottom:18px;padding-right:30px;}
+  .modal h3{font-size:16px;font-weight:700;margin:18px 0 8px;color:var(--gold);}
+  .modal p,.modal li{color:var(--txt3);font-size:14.5px;margin-bottom:8px;}
+  .modal ul{padding-left:20px;}
+  .modal .close{position:absolute;top:20px;right:20px;background:rgba(255,255,255,.1);border:none;color:#fff;
+    width:36px;height:36px;border-radius:99px;font-size:18px;cursor:pointer;}
+  .modal .close:hover{background:rgba(255,255,255,.2);}
+  .modal a.link{color:var(--gold);text-decoration:underline;}
+
+  .reveal{opacity:0;transform:translateY(28px);transition:opacity .6s ease,transform .6s ease;}
+  .reveal.in{opacity:1;transform:none;}
+
+  /* confetti */
+  @keyframes cfall{0%{transform:translateY(-10vh) rotate(0);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+</style>
+</head>
+<body>
+
+<!-- ══════════ NAVBAR ══════════ -->
+<nav class="nav">
+  <a href="#top" class="brand"><img src="public/icon-192x192.png" alt="Wochen Champion Logo" /> Wochen&nbsp;Champion</a>
+  <div class="links" id="navlinks">
+    <a href="#features" onclick="closeNav()">Funktionen</a>
+    <a href="#menus" onclick="closeNav()">Menüs</a>
+    <a href="#settings" onclick="closeNav()">Einstellungen</a>
+    <a href="#pricing" onclick="closeNav()">Preise</a>
+    <a href="#faq" onclick="closeNav()">Infos</a>
+    <a href="#pricing" class="cta" onclick="closeNav()">🚀 Kostenlos testen</a>
+  </div>
+  <button class="burger" onclick="toggleNav()" aria-label="Menü">☰</button>
+</nav>
+
+<span id="top"></span>
+
+<!-- ══════════ HERO ══════════ -->
+<section class="hero">
+  <div class="hero-text reveal">
+    <span class="pill">🏆 Familien-App · Version 5.0 · Für die ganze Familie</span>
+    <h1>Macht den Haushalt zum <span class="grad-text">Spiel.</span>
+      <small>Aufgaben erledigen, Punkte sammeln, Wochen-Champion werden – die ganze Familie macht mit.</small>
+    </h1>
+    <p class="lead">Wochen Champion verwandelt Aufräumen, Tisch decken und Müll rausbringen in ein motivierendes
+      Punktespiel. Kinder sammeln Sterne ⭐, lösen Belohnungen ein und kämpfen jede Woche um die Krone 👑.</p>
+    <div class="actions">
+      <a href="#pricing" class="btn btn-gold">📲 Kostenlos herunterladen</a>
+      <a href="#demo" class="btn btn-ghost">▶ Live-Demo ansehen</a>
+    </div>
+    <div class="trust">
+      <div><b>5 ⭐</b>Familien-Bewertung</div>
+      <div><b>100%</b>Werbefrei</div>
+      <div><b>0 €</b>Zum Starten</div>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE PHONE -->
+  <div class="phone-wrap reveal" id="demo">
+    <div class="phone">
+      <div class="screen">
+        <div class="screen-scroll" id="appScreen"><!-- injected by JS --></div>
+        <div class="m-nav" id="appNav"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ INFO STRIP ══════════ -->
+<section style="padding-top:20px;padding-bottom:40px;">
+  <div class="strip reveal">
+    <div class="item"><div class="big">⭐</div><div class="lbl">Punkte-System mit Sternen</div></div>
+    <div class="item"><div class="big">10</div><div class="lbl">Abzeichen zum Freischalten</div></div>
+    <div class="item"><div class="big">👑</div><div class="lbl">Wöchentliche Champion-Krönung</div></div>
+    <div class="item"><div class="big">∞</div><div class="lbl">Mitglieder & Aufgaben</div></div>
+    <div class="item"><div class="big">☁️</div><div class="lbl">Echtzeit-Sync auf allen Geräten</div></div>
+  </div>
+</section>
+
+<!-- ══════════ FEATURES ══════════ -->
+<section id="features">
+  <h2 class="sec-title reveal">Alles, was eine <span class="gold">Familie</span> braucht</h2>
+  <p class="sec-sub reveal">Tippe auf eine Funktion, um mehr zu erfahren. Jedes Feature ist darauf ausgelegt, Kinder zu
+    motivieren und Eltern den Alltag zu erleichtern.</p>
+  <div class="feat-grid" id="featGrid"></div>
+</section>
+
+<!-- ══════════ MENÜS / DEMO ══════════ -->
+<section id="menus">
+  <h2 class="sec-title reveal">Die <span class="gold">vier Menüs</span> der App</h2>
+  <p class="sec-sub reveal">Wochen Champion ist in vier übersichtliche Bereiche aufgeteilt. Klicke dich durch –
+    die Vorschau rechts zeigt dir jedes Menü live.</p>
+  <div class="demo-wrap">
+    <div class="demo-controls reveal" id="menuControls"></div>
+    <div class="phone-wrap reveal">
+      <div class="phone">
+        <div class="screen">
+          <div class="screen-scroll" id="menuScreen"></div>
+          <div class="m-nav" id="menuNav"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ EINSTELLUNGEN ══════════ -->
+<section id="settings">
+  <h2 class="sec-title reveal">Du hast die <span class="gold">Kontrolle</span></h2>
+  <p class="sec-sub reveal">Der PIN-geschützte Eltern-Bereich (⚙️ Verwalten) bietet alle Einstellungen, um die App
+    perfekt an deine Familie anzupassen.</p>
+  <div class="set-grid">
+    <div class="set-item reveal"><div class="e">🔒</div><h4>PIN-Schutz</h4><p>Der Eltern-Bereich ist mit einer frei wählbaren PIN gesichert. Kinder können nichts versehentlich verändern.</p></div>
+    <div class="set-item reveal"><div class="e">🛡️</div><h4>Eltern-Bestätigung</h4><p>Optional müssen erledigte Kinder-Aufgaben erst von den Eltern bestätigt werden, bevor es Punkte gibt.</p></div>
+    <div class="set-item reveal"><div class="e">📋</div><h4>Aufgaben verwalten</h4><p>Eigene Aufgaben mit Emoji oder Foto, Punktwert, Kategorie und Wiederholung (täglich/wöchentlich) anlegen.</p></div>
+    <div class="set-item reveal"><div class="e">🎁</div><h4>Belohnungen</h4><p>20+ fertige Vorschläge oder eigene Belohnungen – pro Kind individuell zuweisbar.</p></div>
+    <div class="set-item reveal"><div class="e">👨‍👩‍👧‍👦</div><h4>Mitglieder & Profile</h4><p>Familienmitglieder mit Foto, Emoji, Farbe und Admin-Rechten anlegen und bearbeiten.</p></div>
+    <div class="set-item reveal"><div class="e">📂</div><h4>Eigene Kategorien</h4><p>Kategorien wie Ordnung, Küche oder Garten frei anpassen und pro Kind sichtbar machen.</p></div>
+    <div class="set-item reveal"><div class="e">⭐</div><h4>Punkte korrigieren</h4><p>Einzelne Punkte oder Belohnungen nachträglich gutschreiben oder zurücknehmen.</p></div>
+    <div class="set-item reveal"><div class="e">🔄</div><h4>Zurücksetzen</h4><p>Wochenpunkte, alle Punkte oder die komplette App mit einem Klick zurücksetzen.</p></div>
+  </div>
+</section>
+
+<!-- ══════════ PRICING / WEBSHOP ══════════ -->
+<section id="pricing">
+  <h2 class="sec-title reveal">Kostenlos starten – <span class="gold">jederzeit upgraden</span></h2>
+  <p class="sec-sub reveal">Lade die App kostenlos herunter und teste sie ohne Risiko. Im Webshop schließt du
+    optional ein Premium-Abo ab oder kaufst die App einmalig.</p>
+  <div class="price-grid">
+    <div class="price reveal">
+      <h3>🆓 Gratis</h3>
+      <div class="desc">Zum Ausprobieren – voller Funktionsumfang für eine Familie.</div>
+      <div class="amt">0 €<small> / für immer</small></div>
+      <ul>
+        <li><span class="ck">✓</span> Bis zu 5 Familienmitglieder</li>
+        <li><span class="ck">✓</span> Aufgaben, Punkte & Belohnungen</li>
+        <li><span class="ck">✓</span> Wochen-Champion & Abzeichen</li>
+        <li><span class="ck">✓</span> Werbefrei</li>
+      </ul>
+      <button class="btn btn-ghost" onclick="openShop('Gratis-Version')">Kostenlos herunterladen</button>
+    </div>
+
+    <div class="price featured reveal">
+      <span class="tag">⭐ BELIEBT</span>
+      <h3>👑 Premium-Abo</h3>
+      <div class="desc">Für aktive Familien, die alles herausholen wollen.</div>
+      <div class="amt">2,99 €<small> / Monat</small></div>
+      <ul>
+        <li><span class="ck">✓</span> Unbegrenzt viele Mitglieder</li>
+        <li><span class="ck">✓</span> Echtzeit-Sync auf allen Geräten</li>
+        <li><span class="ck">✓</span> Eigene Fotos für Aufgaben & Profile</li>
+        <li><span class="ck">✓</span> Detaillierte Statistiken & Verlauf</li>
+        <li><span class="ck">✓</span> Premium-Support</li>
+      </ul>
+      <button class="btn btn-gold" onclick="openShop('Premium-Abo')">🛒 Zum Webshop · Abo abschließen</button>
+    </div>
+
+    <div class="price reveal">
+      <h3>💎 Einmalkauf</h3>
+      <div class="desc">Einmal zahlen, für immer nutzen – ohne Abo.</div>
+      <div class="amt">29,99 €<small> / einmalig</small></div>
+      <ul>
+        <li><span class="ck">✓</span> Alle Premium-Funktionen</li>
+        <li><span class="ck">✓</span> Lebenslange Updates</li>
+        <li><span class="ck">✓</span> Keine monatlichen Kosten</li>
+        <li><span class="ck">✓</span> Premium-Support</li>
+      </ul>
+      <button class="btn btn-indigo" onclick="openShop('Einmalkauf')">🛒 Im Webshop kaufen</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FAQ / RESEARCH ══════════ -->
+<section id="faq">
+  <h2 class="sec-title reveal">Mehr über die App <span class="gold">erfahren</span></h2>
+  <p class="sec-sub reveal">Recherchiere selbst: häufige Fragen, technische Details und alle Infos rund um
+    Wochen Champion. Klicke auf eine Frage zum Aufklappen.</p>
+  <div class="acc" id="faqAcc"></div>
+  <div style="text-align:center;margin-top:36px;display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+    <button class="btn btn-ghost" onclick="openModal('aboutModal')">ℹ️ Über die App</button>
+    <button class="btn btn-ghost" onclick="openModal('techModal')">⚙️ Technische Details</button>
+    <a href="https://github.com/volkmar11/familienapp" target="_blank" rel="noopener" class="btn btn-ghost">💻 Projekt auf GitHub</a>
+  </div>
+</section>
+
+<!-- ══════════ CTA BANNER ══════════ -->
+<section>
+  <div class="cta-banner reveal">
+    <h2>Bereit, Wochen-Champion zu werden? 🏆</h2>
+    <p>Lade Wochen Champion noch heute kostenlos herunter und bring Schwung in euren Familienalltag.</p>
+    <div class="actions">
+      <a href="#pricing" class="btn btn-gold">📲 Jetzt kostenlos testen</a>
+      <button class="btn btn-ghost" onclick="openShop('Premium-Abo')">🛒 Zum Webshop</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ FOOTER ══════════ -->
+<footer>
+  <div class="foot-grid">
+    <div>
+      <div class="brand"><img src="public/icon-192x192.png" alt="Logo" /> Wochen Champion</div>
+      <p>Die Familien-App, die den Haushalt zum motivierenden Spiel macht. Aufgaben, Punkte, Belohnungen
+        und jede Woche ein neuer Champion.</p>
+    </div>
+    <div>
+      <h5>Produkt</h5>
+      <ul>
+        <li><a href="#features">Funktionen</a></li>
+        <li><a href="#menus">Menüs</a></li>
+        <li><a href="#settings">Einstellungen</a></li>
+        <li><a href="#pricing">Preise & Webshop</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Informationen</h5>
+      <ul>
+        <li><a href="#faq">FAQ / Infos</a></li>
+        <li><a href="#" onclick="openModal('aboutModal');return false;">Über die App</a></li>
+        <li><a href="#" onclick="openModal('techModal');return false;">Technik</a></li>
+        <li><a href="#" onclick="openModal('impressumModal');return false;">Impressum</a></li>
+        <li><a href="#" onclick="openModal('privacyModal');return false;">Datenschutz</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot-bottom">
+    <span>© 2026 Wochen Champion · Alle Rechte vorbehalten.</span>
+    <span>
+      <a href="#" onclick="openModal('impressumModal');return false;">Impressum</a> ·
+      <a href="#" onclick="openModal('privacyModal');return false;">Datenschutz</a>
+    </span>
+  </div>
+</footer>
+
+<!-- ══════════ MODALS ══════════ -->
+<div class="modal-bg" id="shopModal" onclick="bgClose(event,'shopModal')">
+  <div class="modal">
+    <button class="close" onclick="closeModal('shopModal')">✕</button>
+    <h2>🛒 Webshop</h2>
+    <p id="shopText">Du hast <b>Premium-Abo</b> gewählt.</p>
+    <p>Der Webshop wird in Kürze freigeschaltet. Hier kannst du dann dein Abo abschließen, die App einmalig
+      kaufen oder die kostenlose Version herunterladen.</p>
+    <h3>So geht's nach dem Start des Shops:</h3>
+    <ul>
+      <li>App kostenlos herunterladen und testen</li>
+      <li>Im Konto auf <b>Premium</b> upgraden (monatlich kündbar)</li>
+      <li>Oder Einmalkauf für dauerhafte Nutzung ohne Abo</li>
+    </ul>
+    <p style="margin-top:16px;">Möchtest du benachrichtigt werden, sobald der Shop online ist? Schreib uns:
+      <a class="link" href="mailto:marcusv21@gmx.de?subject=Wochen%20Champion%20Webshop">marcusv21@gmx.de</a></p>
+    <button class="btn btn-gold" style="width:100%;justify-content:center;margin-top:18px;" onclick="closeModal('shopModal')">Verstanden 👍</button>
+  </div>
+</div>
+
+<div class="modal-bg" id="aboutModal" onclick="bgClose(event,'aboutModal')">
+  <div class="modal">
+    <button class="close" onclick="closeModal('aboutModal')">✕</button>
+    <h2>ℹ️ Über Wochen Champion</h2>
+    <p>Wochen Champion ist eine Familien-Haushaltshilfe mit Punktesystem. Die App motiviert Kinder spielerisch,
+      im Haushalt mitzuhelfen, und gibt Eltern ein einfaches Werkzeug, um Aufgaben zu organisieren und zu belohnen.</p>
+    <h3>Die Idee</h3>
+    <p>Jedes erledigte To-Do bringt Sterne ⭐. Wer in der Woche die meisten Punkte sammelt, wird feierlich zum
+      <b>Wochen-Champion</b> gekrönt – inklusive Krone 👑 und Konfetti 🎉. Gesammelte Punkte lassen sich gegen
+      individuelle Belohnungen eintauschen.</p>
+    <h3>Für wen?</h3>
+    <p>Für Familien mit Kindern jeden Alters, die den Haushalt fairer aufteilen und gleichzeitig Spaß daran haben wollen.
+      Standardmäßig dabei: Papa, Mama und bis zu drei Kinder – beliebig erweiterbar.</p>
+    <h3>Highlights</h3>
+    <ul>
+      <li>Über 14 fertige Beispiel-Aufgaben & 20+ Belohnungsvorschläge</li>
+      <li>10 Abzeichen, Streaks 🔥 und detaillierte Statistiken</li>
+      <li>Echtzeit-Synchronisation auf allen Geräten der Familie</li>
+      <li>Als App installierbar (PWA) – funktioniert auf Handy, Tablet & PC</li>
+    </ul>
+  </div>
+</div>
+
+<div class="modal-bg" id="techModal" onclick="bgClose(event,'techModal')">
+  <div class="modal">
+    <button class="close" onclick="closeModal('techModal')">✕</button>
+    <h2>⚙️ Technische Details</h2>
+    <p>Wochen Champion ist eine moderne Web-App, die sich wie eine native App auf dem Startbildschirm
+      installieren lässt (Progressive Web App).</p>
+    <h3>Technologie</h3>
+    <ul>
+      <li><b>Frontend:</b> React 18 + Vite</li>
+      <li><b>Backend & Sync:</b> Supabase (Echtzeit-Datenbank)</li>
+      <li><b>Plattform:</b> PWA – läuft im Browser & installierbar</li>
+      <li><b>Version:</b> 5.0.0</li>
+    </ul>
+    <h3>Datenspeicherung</h3>
+    <p>Alle Familiendaten werden zentral und in Echtzeit synchronisiert, sodass jedes Gerät immer den
+      aktuellen Stand zeigt – Punkte, die ein Kind auf dem Tablet sammelt, erscheinen sofort auf dem Handy der Eltern.</p>
+    <h3>Open Source</h3>
+    <p>Der Quellcode ist auf GitHub einsehbar:
+      <a class="link" href="https://github.com/volkmar11/familienapp" target="_blank" rel="noopener">github.com/volkmar11/familienapp</a></p>
+  </div>
+</div>
+
+<div class="modal-bg" id="impressumModal" onclick="bgClose(event,'impressumModal')">
+  <div class="modal">
+    <button class="close" onclick="closeModal('impressumModal')">✕</button>
+    <h2>📄 Impressum</h2>
+    <p>Angaben gemäß § 5 TMG (Telemediengesetz)</p>
+    <h3>Anbieter</h3>
+    <p>
+      Wochen Champion – Familienapp<br>
+      [Vor- und Nachname / Firma]<br>
+      [Straße und Hausnummer]<br>
+      [PLZ und Ort]<br>
+      Deutschland
+    </p>
+    <h3>Kontakt</h3>
+    <p>
+      E-Mail: <a class="link" href="mailto:marcusv21@gmx.de">marcusv21@gmx.de</a><br>
+      Telefon: [Telefonnummer eintragen]
+    </p>
+    <h3>Verantwortlich für den Inhalt (§ 18 Abs. 2 MStV)</h3>
+    <p>[Vor- und Nachname]<br>[Anschrift wie oben]</p>
+    <h3>Haftungshinweis</h3>
+    <p>Trotz sorgfältiger inhaltlicher Kontrolle übernehmen wir keine Haftung für die Inhalte externer Links.
+      Für den Inhalt der verlinkten Seiten sind ausschließlich deren Betreiber verantwortlich.</p>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:14px;">Hinweis: Bitte die mit […] markierten
+      Platzhalter durch die echten gesetzlich erforderlichen Angaben ersetzen.</p>
+  </div>
+</div>
+
+<div class="modal-bg" id="privacyModal" onclick="bgClose(event,'privacyModal')">
+  <div class="modal">
+    <button class="close" onclick="closeModal('privacyModal')">✕</button>
+    <h2>🔐 Datenschutz</h2>
+    <p>Der Schutz deiner Familiendaten hat höchste Priorität. Diese Übersicht informiert dich über den
+      Umgang mit personenbezogenen Daten.</p>
+    <h3>Welche Daten werden erfasst?</h3>
+    <ul>
+      <li>Selbst angelegte Profile (Name, Emoji/Foto, Farbe)</li>
+      <li>Erstellte Aufgaben, Belohnungen und gesammelte Punkte</li>
+    </ul>
+    <h3>Speicherung</h3>
+    <p>Die Daten werden zur Synchronisation zwischen euren Geräten gespeichert. Es werden keine Daten zu
+      Werbezwecken verkauft – die App ist und bleibt werbefrei.</p>
+    <h3>Deine Rechte</h3>
+    <p>Du kannst jederzeit alle Daten direkt in der App (Eltern-Bereich → „Komplett-Reset") vollständig löschen.</p>
+    <p style="font-size:12.5px;color:var(--muted);margin-top:14px;">Hinweis: Dies ist eine vereinfachte
+      Übersicht und ersetzt keine vollständige Datenschutzerklärung.</p>
+  </div>
+</div>
+
+<script>
+/* ════════ DATA (aus der echten App) ════════ */
+const MEMBERS=[
+  {n:"Papa",e:"👨",c:"#2563eb",wp:85},
+  {n:"Mama",e:"👩",c:"#dc2626",wp:70},
+  {n:"Marlon",e:"🧑",c:"#16a34a",wp:120},
+  {n:"Clara",e:"👧",c:"#eab308",wp:95},
+  {n:"Jonah",e:"👶",c:"#f97316",wp:40},
+];
+const TAGS=["Alle","🧹 Ordnung","🍳 Küche","🏠 Haushalt","🌱 Garten"];
+const TASKS=[
+  {i:"👟",n:"Schuhe aufräumen",c:"Ordnung",p:5,done:true},
+  {i:"🛏️",n:"Zimmer aufräumen",c:"Ordnung",p:15,done:false},
+  {i:"🧸",n:"Spielzeug wegräumen",c:"Ordnung",p:10,done:false},
+  {i:"🍽️",n:"Spülmaschine einräumen",c:"Küche",p:15,done:true},
+  {i:"🍴",n:"Tisch decken",c:"Küche",p:10,done:false},
+  {i:"🗑️",n:"Müll rausbringen",c:"Haushalt",p:10,done:false},
+  {i:"🧹",n:"Saugen",c:"Haushalt",p:20,done:false},
+  {i:"🌱",n:"Gartenarbeit",c:"Garten",p:20,done:false},
+];
+const BADGES=[
+  {e:"🌟",n:"Erste Schritte",on:1},{e:"🐝",n:"Fleißige Biene",on:1},{e:"🦸",n:"Superheld",on:1},
+  {e:"✨",n:"Ordnungs-profi",on:1},{e:"👨‍🍳",n:"Küchenchef",on:0},{e:"🌻",n:"Gärtner",on:0},
+  {e:"🔥",n:"3-Tage-Streak",on:1},{e:"💎",n:"7-Tage-Streak",on:0},{e:"🏆",n:"Wochen-champion",on:1},{e:"💯",n:"100er Club",on:1},
+];
+const REWARDS=[
+  {i:"🍦",n:"Eis essen gehen",p:100,ok:true},
+  {i:"📱",n:"30 Min extra Bildschirmzeit",p:80,ok:true},
+  {i:"🍕",n:"Wunschessen",p:150,ok:false},
+  {i:"🎢",n:"Ausflug wählen",p:300,ok:false},
+];
+const NAV=[{id:"home",e:"🏠",l:"Home"},{id:"rewards",e:"🎁",l:"Belohnungen"},{id:"stats",e:"📊",l:"Statistik"},{id:"admin",e:"⚙️",l:"Verwalten"}];
+
+/* ════════ SCREEN RENDERERS ════════ */
+function membersRow(activeName="Marlon"){
+  return `<div class="m-members">`+MEMBERS.map(m=>`
+    <div class="m-member ${m.n===activeName?'active':''}" style="${m.n===activeName?`border-color:${m.c}`:''}">
+      <span class="av">${m.e}</span>
+      <span class="nm" style="${m.n===activeName?`color:${m.c}`:''}">${m.n}</span>
+      <span class="pts" style="background:${m.c}">${m.wp} ⭐</span>
+    </div>`).join('')+`</div>`;
+}
+function screenHome(){
+  return `
+  <div class="m-hdr">
+    <div class="m-title">🏆 Wochen Champion</div>
+    <div class="m-sub">Wer hat die meisten Punkte?</div>
+    <div class="m-champ">
+      <span class="emoji">👑</span>
+      <div><div class="lbl">AKTUELLER CHAMPION</div><div class="val">🧑 Marlon <span class="gold">(120 ⭐)</span></div></div>
+    </div>
+  </div>
+  ${membersRow()}
+  <div class="m-tags">${TAGS.map((t,i)=>`<span class="m-tag ${i===0?'on':''}">${t}</span>`).join('')}</div>
+  <div style="padding-top:6px;">
+    ${TASKS.map(t=>`
+      <div class="m-task ${t.done?'done':''}">
+        <span class="ic">${t.i}</span>
+        <div class="t"><div class="n">${t.n}</div><div class="c">${t.c}</div></div>
+        <span class="b">${t.done?'✓':'+'+t.p}</span>
+      </div>`).join('')}
+  </div>
+  <div class="m-card">
+    <h4>🏅 Abzeichen</h4>
+    <div class="m-badges">${BADGES.map(b=>`
+      <div class="m-badge ${b.on?'e':'l'}"><span class="be">${b.e}</span><span class="bn">${b.n}</span></div>`).join('')}</div>
+  </div>`;
+}
+function screenRewards(){
+  return `
+  <div class="m-hdr">
+    <div class="m-title">🎁 Belohnungen</div>
+    <div class="m-sub">🧑 Marlon: <b>180 ⭐</b> verfügbar</div>
+  </div>
+  <div style="padding-top:12px;">
+    ${REWARDS.map(r=>`
+      <div class="m-reward ${r.ok?'':'locked'}">
+        <span class="ic">${r.i}</span>
+        <div class="t"><div class="n">${r.n}</div><div class="c">Kosten: ${r.p} ⭐</div></div>
+        <span class="b" style="${r.ok?'':'background:#6366f1'}">${r.ok?'Einlösen':'🔒'}</span>
+      </div>`).join('')}
+  </div>
+  <div class="m-card">
+    <h4>Eingelöste Belohnungen</h4>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);padding:5px 0;border-bottom:1px solid rgba(255,255,255,.08);"><span>🍫 Lieblingssüßigkeit</span><span style="color:var(--muted)">08.06.</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--txt3);padding:5px 0;"><span>🎮 1 Stunde Konsole</span><span style="color:var(--muted)">05.06.</span></div>
+  </div>`;
+}
+function screenStats(){
+  const ranked=[...MEMBERS].sort((a,b)=>b.wp-a.wp);const max=Math.max(...ranked.map(m=>m.wp));
+  const week=[30,55,40,70,95,60,120];const wmax=Math.max(...week);
+  const medals=["🥇","🥈","🥉","4.","5."];
+  return `
+  <div class="m-hdr"><div class="m-title">📊 Statistiken</div></div>
+  <div class="m-card" style="margin-top:14px;">
+    <h4>🏆 Wochenrangliste</h4>
+    ${ranked.map((m,i)=>`
+      <div class="m-rank">
+        <span class="pos">${medals[i]}</span><span class="av">${m.e}</span>
+        <div class="info"><div class="n">${m.n}</div><div class="m-bar"><i style="width:${m.wp/max*100}%;background:${m.c}"></i></div></div>
+        <span class="sc" style="background:${m.c}">${m.wp}⭐</span>
+      </div>`).join('')}
+  </div>
+  <div class="m-card">
+    <h4>📈 Letzte 7 Tage</h4>
+    <div class="m-chart">
+      ${week.map((v,i)=>`<div class="col">
+        <span style="font-size:9px;color:var(--txt2)">${v}</span>
+        <div class="bar" style="height:${v/wmax*70+6}px;background:${i===6?'#fbbf24':'rgba(255,255,255,.18)'}"></div>
+        <span class="d">${['Mo','Di','Mi','Do','Fr','Sa','So'][i]}</span></div>`).join('')}
+    </div>
+  </div>
+  <div class="m-card">
+    <h4>📂 Kategorien (Woche)</h4>
+    ${[['🧹','Ordnung','12× · 95⭐'],['🍳','Küche','8× · 75⭐'],['🏠','Haushalt','5× · 80⭐'],['🌱','Garten','2× · 40⭐']].map(c=>`
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.08);color:var(--txt3);font-size:12px"><span>${c[0]}</span><div style="flex:1">${c[1]}</div><span style="color:var(--txt2)">${c[2]}</span></div>`).join('')}
+  </div>`;
+}
+function screenAdmin(){
+  return `
+  <div class="m-hdr">
+    <div class="m-title" style="justify-content:space-between"><span>⚙️ Verwalten</span><span style="font-size:13px;background:rgba(255,255,255,.15);padding:3px 9px;border-radius:8px">🔒</span></div>
+  </div>
+  <div class="m-card" style="margin-top:14px;border:2px solid #fbbf24">
+    <h4>⏳ Bestätigungen (2)</h4>
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08);color:var(--txt3)">
+      <span>👧</span><div style="flex:1;font-size:12px"><b style="color:#fff">Clara: Tisch decken</b><br><span style="color:var(--txt2);font-size:10px">+10⭐</span></div>
+      <span style="background:#22c55e;color:#fff;border-radius:8px;padding:3px 9px;font-size:13px">✓</span>
+      <span style="background:#ef4444;color:#fff;border-radius:8px;padding:3px 9px;font-size:13px">✗</span>
+    </div>
+  </div>
+  <div class="m-card">
+    <h4>📋 Aufgaben (14)</h4>
+    ${TASKS.slice(0,4).map(t=>`<div class="m-rowbtn"><span>${t.i}</span><span>${t.n}</span><span style="margin-left:auto;color:var(--gold)">${t.p}⭐</span><span style="color:var(--muted)">✏️</span></div>`).join('')}
+  </div>
+  <div class="m-card">
+    <h4>🛡️ Einstellungen</h4>
+    <div class="m-set"><div class="sw"></div><div class="txt"><div class="a">Eltern-Bestätigung nötig</div><div class="b">Kinder-Aufgaben müssen bestätigt werden</div></div></div>
+    <div class="m-set" style="border:none"><div class="sw off"></div><div class="txt"><div class="a">Konfetti-Effekte</div><div class="b">Animation bei neuen Bestleistungen</div></div></div>
+  </div>
+  <div class="m-card">
+    <h4>🗑️ Daten-Verwaltung</h4>
+    <div class="m-rowbtn" style="background:rgba(67,56,202,.4)">⭐ Punkte verwalten / korrigieren</div>
+    <div class="m-rowbtn" style="background:rgba(249,115,22,.35)">🔄 Nur Wochenpunkte zurücksetzen</div>
+    <div class="m-rowbtn" style="background:rgba(220,38,38,.35)">⚠️ Alle Punkte zurücksetzen</div>
+  </div>`;
+}
+const SCREENS={home:screenHome,rewards:screenRewards,stats:screenStats,admin:screenAdmin};
+
+/* ════════ NAV RENDER + WIRING ════════ */
+function renderNav(navEl,screenEl,active){
+  navEl.innerHTML=NAV.map(n=>`<button class="${n.id===active?'on':''}" data-id="${n.id}"><span class="ne">${n.e}</span>${n.l}</button>`).join('');
+  navEl.querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    setScreen(navEl,screenEl,b.dataset.id);
+    if(navEl.id==='menuNav')syncMenuButtons(b.dataset.id);
+  });
+}
+function setScreen(navEl,screenEl,id){
+  screenEl.innerHTML=SCREENS[id]();
+  screenEl.scrollTop=0;
+  navEl.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+}
+
+/* hero phone */
+const heroScreen=document.getElementById('appScreen'),heroNav=document.getElementById('appNav');
+renderNav(heroNav,heroScreen,'home');setScreen(heroNav,heroScreen,'home');
+
+/* menu-section phone + controls */
+const menuScreen=document.getElementById('menuScreen'),menuNav=document.getElementById('menuNav');
+renderNav(menuNav,menuScreen,'home');setScreen(menuNav,menuScreen,'home');
+const MENU_INFO=[
+  {id:"home",e:"🏠",t:"Home",d:"Profil wählen, Aufgaben abhaken, Punkte sammeln und Abzeichen freischalten."},
+  {id:"rewards",e:"🎁",t:"Belohnungen",d:"Gesammelte Sterne gegen individuelle Belohnungen eintauschen."},
+  {id:"stats",e:"📊",t:"Statistik",d:"Ranglisten, 7-Tage-Verlauf, Kategorien und bisherige Champions."},
+  {id:"admin",e:"⚙️",t:"Verwalten",d:"PIN-geschützter Eltern-Bereich mit allen Einstellungen."},
+];
+const menuControls=document.getElementById('menuControls');
+menuControls.innerHTML=MENU_INFO.map((m,i)=>`
+  <button class="menu-btn ${i===0?'active':''}" data-id="${m.id}">
+    <span class="e">${m.e}</span><div class="mt"><h3>${m.t}</h3><p>${m.d}</p></div>
+  </button>`).join('');
+function syncMenuButtons(id){menuControls.querySelectorAll('.menu-btn').forEach(b=>b.classList.toggle('active',b.dataset.id===id));}
+menuControls.querySelectorAll('.menu-btn').forEach(b=>b.onclick=()=>{setScreen(menuNav,menuScreen,b.dataset.id);syncMenuButtons(b.dataset.id);});
+
+/* ════════ FEATURES ════════ */
+const FEATURES=[
+  {ico:"✅",t:"Aufgaben & Punkte",s:"Jede erledigte Aufgabe bringt Sterne ⭐.",d:"Lege beliebige Aufgaben mit Emoji oder eigenem Foto an, vergib Punktwerte und lege fest, ob sie täglich, wöchentlich oder einmalig anfallen. Eine Doppelklick-Sperre verhindert versehentliches Doppel-Erledigen."},
+  {ico:"👑",t:"Wochen-Champion",s:"Wer sammelt die meisten Punkte?",d:"Jede Woche wird automatisch der Champion gekürt – mit feierlicher Krönungs-Zeremonie, Krone 👑 und Konfetti 🎉. Eine Champion-Historie zeigt alle bisherigen Gewinner. Auch der Tagessieger bekommt eine Krone."},
+  {ico:"🎁",t:"Belohnungen",s:"Punkte gegen echte Belohnungen tauschen.",d:"Über 20 fertige Belohnungsvorschläge (Eis essen, extra Bildschirmzeit, Ausflug …) oder eigene Belohnungen. Jede Belohnung ist einzelnen Kindern zuweisbar. Eltern werden bei jeder Einlösung benachrichtigt."},
+  {ico:"🏅",t:"Abzeichen & Streaks",s:"10 Abzeichen und tägliche Serien.",d:"Von ‚Erste Schritte‘ über ‚Fleißige Biene‘ bis ‚Superheld‘ – 10 Abzeichen motivieren zum Dranbleiben. Streaks 🔥 belohnen mehrere aktive Tage in Folge."},
+  {ico:"📊",t:"Statistiken",s:"Alles im Blick, fair und transparent.",d:"Wochen-, Monats- und Gesamtrangliste, 7-Tage-Verlaufsdiagramm, Auswertung nach Kategorien, Durchschnittspunkte und ein Aktivitätsprotokoll der letzten Aktionen."},
+  {ico:"👨‍👩‍👧‍👦",t:"Profile & Foto",s:"Jedes Familienmitglied individuell.",d:"Lege Profile mit eigenem Foto, Emoji und Farbe an. Eltern erhalten Admin-Rechte, Kinder ein kindgerechtes, geschütztes Erlebnis."},
+  {ico:"🛡️",t:"Eltern-Kontrolle",s:"PIN-Schutz & Bestätigungen.",d:"Der Eltern-Bereich ist per PIN gesichert. Optional müssen Kinder-Aufgaben erst bestätigt werden, bevor Punkte gutgeschrieben werden – so bleibt alles fair."},
+  {ico:"☁️",t:"Echtzeit-Sync",s:"Immer aktuell auf jedem Gerät.",d:"Dank Echtzeit-Synchronisation sehen alle Familienmitglieder sofort denselben Stand. Punkte auf dem Tablet erscheinen augenblicklich auf dem Handy der Eltern. Installierbar als App (PWA)."},
+];
+document.getElementById('featGrid').innerHTML=FEATURES.map(f=>`
+  <div class="feat reveal" onclick="this.classList.toggle('open')">
+    <span class="ico">${f.ico}</span>
+    <h3>${f.t}</h3>
+    <p>${f.s}</p>
+    <span class="more">Mehr erfahren <span class="arr">›</span></span>
+    <div class="detail">${f.d}</div>
+  </div>`).join('');
+
+/* ════════ FAQ ════════ */
+const FAQ=[
+  {q:"Was kostet die App?",a:"Die Grundversion ist dauerhaft kostenlos und werbefrei. Optional gibt es ein Premium-Abo (2,99 €/Monat) oder einen Einmalkauf (29,99 €) mit erweiterten Funktionen."},
+  {q:"Für welche Geräte ist Wochen Champion geeignet?",a:"Die App läuft auf Handy, Tablet und Computer. Sie lässt sich als App (PWA) auf dem Startbildschirm installieren und funktioniert dann wie eine native App – plattformübergreifend."},
+  {q:"Wie viele Kinder kann ich anlegen?",a:"In der Gratis-Version bis zu 5 Familienmitglieder. Mit Premium ist die Zahl unbegrenzt. Standardmäßig sind Papa, Mama und drei Kinder vorbereitet."},
+  {q:"Können Kinder schummeln?",a:"Nein. Eine Doppelklick-Sperre verhindert mehrfaches Abhaken, und Eltern können optional eine Bestätigungspflicht aktivieren. Außerdem lassen sich Punkte jederzeit korrigieren."},
+  {q:"Wie funktioniert der Wochen-Champion?",a:"Am Ende jeder Woche wird automatisch ausgewertet, wer die meisten Punkte gesammelt hat. Dieser wird mit einer Zeremonie zum Champion gekrönt und in die Bestenliste aufgenommen."},
+  {q:"Sind meine Familiendaten sicher?",a:"Ja. Die App ist werbefrei, verkauft keine Daten und alle Inhalte lassen sich jederzeit komplett in der App löschen. Mehr dazu im Datenschutz-Hinweis im Footer."},
+  {q:"Brauche ich ein Konto?",a:"Du kannst sofort loslegen. Für die geräteübergreifende Echtzeit-Synchronisation werden die Familiendaten zentral gespeichert."},
+];
+document.getElementById('faqAcc').innerHTML=FAQ.map(f=>`
+  <div class="acc-item reveal" onclick="this.classList.toggle('open')">
+    <div class="acc-q">${f.q}<span class="pm">+</span></div>
+    <div class="acc-a"><div>${f.a}</div></div>
+  </div>`).join('');
+
+/* ════════ MODALS / NAV / UTIL ════════ */
+function openShop(plan){document.getElementById('shopText').innerHTML=`Du hast <b>${plan}</b> gewählt.`;openModal('shopModal');}
+function openModal(id){document.getElementById(id).classList.add('show');document.body.style.overflow='hidden';}
+function closeModal(id){document.getElementById(id).classList.remove('show');document.body.style.overflow='';}
+function bgClose(e,id){if(e.target===e.currentTarget)closeModal(id);}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal-bg.show').forEach(m=>{m.classList.remove('show');document.body.style.overflow='';});});
+function toggleNav(){document.getElementById('navlinks').classList.toggle('open');}
+function closeNav(){document.getElementById('navlinks').classList.remove('open');}
+
+/* scroll reveal */
+const io=new IntersectionObserver((es)=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}}),{threshold:0.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* tiny confetti when champion mockup loads */
+function confetti(){const cols=["#fbbf24","#f472b6","#34d399","#60a5fa","#a78bfa","#fb923c"];
+  for(let i=0;i<26;i++){const d=document.createElement('div');const s=5+Math.random()*7;
+    d.style.cssText=`position:fixed;left:${Math.random()*100}vw;top:-12px;width:${s}px;height:${s}px;z-index:999;pointer-events:none;border-radius:${s>8?'50%':'2px'};background:${cols[i%6]};animation:cfall ${1.6+Math.random()}s ease-out ${Math.random()*0.5}s forwards`;
+    document.body.appendChild(d);setTimeout(()=>d.remove(),3000);}}
+window.addEventListener('load',()=>setTimeout(confetti,600));
+</script>
+</body>
+</html>
