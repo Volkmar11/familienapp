@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Zeitreise · 17. Juni 1956</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    background: #0b0a1f;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    max-width: 100%;
+    max-height: 100%;
+    height: 100%;
+    aspect-ratio: 9 / 16;
+    border-radius: 18px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+    touch-action: manipulation;
+  }
+  #bar {
+    position: fixed;
+    left: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  button {
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+  button:hover { background: rgba(255,255,255,0.22); }
+  button:active { transform: scale(0.96); }
+  button.primary { background: #e11d48; }
+  button.primary:hover { background: #f43f5e; }
+  button:disabled { opacity: .5; cursor: default; }
+  #hint {
+    position: fixed; top: max(12px, env(safe-area-inset-top)); left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,.5); font-size: 12px; z-index: 10;
+    text-align: center; width: 90%;
+  }
+</style>
+</head>
+<body>
+  <div id="hint"></div>
+  <div id="stage"><canvas id="c" width="1080" height="1920"></canvas></div>
+  <div id="bar">
+    <button id="replay">↺ Nochmal</button>
+    <button id="save" class="primary">🎬 Als Video speichern</button>
+  </div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const START_YEAR = 2026;
+const END_YEAR   = 1956;
+const MONTH = 5;   // Juni (0-basiert)
+const DAY   = 17;
+
+// --- Zeitleiste der Animation (Sekunden) ---
+const T_INTRO  = 1.6;          // Kalender 2026 erscheint
+const T_SCROLL = 8.0;          // Jahre laufen zurück
+const T_HOLD   = 4.2;          // Ankunft 1956, Verweilen
+const T_END    = T_INTRO + T_SCROLL + T_HOLD;
+
+const WD = ["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+function weekday(year){ return WD[new Date(year, MONTH, DAY).getDay()]; }
+
+function easeInOutCubic(t){ return t < .5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
+function easeOutBack(t){ const c=1.70158, p=c+1; return 1+p*Math.pow(t-1,3)+c*Math.pow(t-1,2); }
+function lerp(a,b,t){ return a+(b-a)*t; }
+function mix(c1,c2,t){
+  return c1.map((v,i)=>Math.round(lerp(v,c2[i],t)));
+}
+function rgb(c,a=1){ return `rgba(${c[0]},${c[1]},${c[2]},${a})`; }
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+// Hintergrund-Farben: modern (indigo) -> vintage (warm/sepia)
+const MODERN_TOP = [30,27,75],  MODERN_BOT = [49,46,129];
+const VINTAGE_TOP= [60,38,26],  VINTAGE_BOT= [120,80,45];
+
+// kleine Sterne/Partikel für Tiefe
+const stars = Array.from({length:90}, () => ({
+  x: Math.random()*W, y: Math.random()*H,
+  r: Math.random()*2.2+0.4, s: Math.random()*0.5+0.2
+}));
+
+function drawBackground(p, time){
+  const top = mix(MODERN_TOP, VINTAGE_TOP, p);
+  const bot = mix(MODERN_BOT, VINTAGE_BOT, p);
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, rgb(top));
+  g.addColorStop(1, rgb(bot));
+  ctx.fillStyle = g;
+  ctx.fillRect(0,0,W,H);
+
+  // sanfter Lichtkegel oben
+  const glow = ctx.createRadialGradient(W/2,H*0.34,40, W/2,H*0.34,W*0.8);
+  glow.addColorStop(0, `rgba(255,255,255,${0.10*(1-p*0.5)})`);
+  glow.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0,0,W,H);
+
+  // Partikel, driften nach unten -> Gefühl von "zurück"
+  ctx.save();
+  for(const st of stars){
+    const y = (st.y + time*30*st.s) % H;
+    ctx.globalAlpha = 0.5*st.s + 0.15;
+    ctx.fillStyle = p>0.5 ? '#ffe9c7' : '#cdd2ff';
+    ctx.beginPath(); ctx.arc(st.x, y, st.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// Zeitleisten-Lineal unten: Jahre gleiten vorbei
+function drawTimeline(yearFloat, alpha){
+  const cx = W/2;
+  const y  = H*0.80;
+  const spacing = 230;          // Abstand zwischen Jahren
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+
+  // Mittellinie
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(60,y); ctx.lineTo(W-60,y); ctx.stroke();
+
+  const base = Math.round(yearFloat);
+  for(let d=-4; d<=4; d++){
+    const yr = base + d;
+    if(yr < END_YEAR-2 || yr > START_YEAR+2) continue;
+    const x = cx + (yr - yearFloat)*spacing;
+    const dist = Math.abs(x-cx)/ (spacing*2.2);
+    const fade = Math.max(0, 1-dist);
+    const isCenter = Math.abs(yr - yearFloat) < 0.5;
+
+    // Tick
+    ctx.strokeStyle = `rgba(255,255,255,${0.35*fade})`;
+    ctx.lineWidth = yr%10===0 ? 4 : 2;
+    const tickH = yr%10===0 ? 34 : 20;
+    ctx.beginPath(); ctx.moveTo(x, y-tickH); ctx.lineTo(x, y+tickH); ctx.stroke();
+
+    // Jahreslabel
+    const size = isCenter ? 62 : 40;
+    ctx.font = `${isCenter?700:500} ${size}px -apple-system, "Segoe UI", sans-serif`;
+    ctx.fillStyle = `rgba(255,255,255,${(isCenter?0.95:0.55)*fade})`;
+    ctx.fillText(String(yr), x, y + 95);
+  }
+
+  // Marker in der Mitte (Gegenwartszeiger)
+  ctx.fillStyle = '#f43f5e';
+  ctx.beginPath();
+  ctx.moveTo(cx, y-46); ctx.lineTo(cx-16, y-70); ctx.lineTo(cx+16, y-70);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+// Der Kalender-"Block"
+function drawCalendar(year, p, scale, glow){
+  const cw = 620, ch = 720;
+  const x = (W-cw)/2, y = H*0.26;
+
+  ctx.save();
+  ctx.translate(W/2, y+ch/2);
+  ctx.scale(scale, scale);
+  ctx.translate(-W/2, -(y+ch/2));
+
+  // Schatten + Glühen bei Ankunft
+  ctx.shadowColor = `rgba(244,63,94,${glow*0.8})`;
+  ctx.shadowBlur = 60*glow;
+  // Karte (mit leichtem Sepia-Stich je weiter zurück)
+  const paper = mix([255,255,255], [244,232,210], p);
+  ctx.fillStyle = rgb(paper);
+  roundRect(x, y, cw, ch, 36); ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Kopf (Monat) – rot
+  const head = mix([225,29,72],[176,52,42], p);
+  ctx.fillStyle = rgb(head);
+  roundRect(x, y, cw, 150, 36); ctx.fill();
+  ctx.fillRect(x, y+90, cw, 60);
+
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center';
+  ctx.font = '700 78px -apple-system, "Segoe UI", sans-serif';
+  ctx.fillText('J U N I', x+cw/2, y+108);
+
+  // Tag (17) – groß
+  ctx.fillStyle = rgb(mix([20,20,30],[60,40,28], p));
+  ctx.font = '800 300px -apple-system, "Segoe UI", sans-serif';
+  ctx.fillText(String(DAY), x+cw/2, y+ch*0.62);
+
+  // Wochentag
+  ctx.fillStyle = rgb(mix([120,120,140],[140,100,70], p));
+  ctx.font = '600 52px -apple-system, "Segoe UI", sans-serif';
+  ctx.fillText(weekday(year), x+cw/2, y+ch*0.76);
+
+  // Jahr
+  ctx.fillStyle = rgb(head);
+  ctx.font = '800 96px -apple-system, "Segoe UI", sans-serif';
+  ctx.fillText(String(year), x+cw/2, y+ch*0.95);
+
+  ctx.restore();
+}
+
+function drawText(title, sub, alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.font = '700 64px -apple-system, "Segoe UI", sans-serif';
+  ctx.fillText(title, W/2, H*0.135);
+  if(sub){
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '500 40px -apple-system, "Segoe UI", sans-serif';
+    ctx.fillText(sub, W/2, H*0.135 + 64);
+  }
+  ctx.restore();
+}
+
+function sparkles(time, alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const N = 14;
+  for(let i=0;i<N;i++){
+    const a = (i/N)*Math.PI*2 + time*0.6;
+    const rad = 360 + Math.sin(time*2+i)*40;
+    const x = W/2 + Math.cos(a)*rad;
+    const y = H*0.45 + Math.sin(a)*rad*1.2;
+    const s = 8 + Math.sin(time*3+i)*5;
+    ctx.fillStyle = '#ffd56b';
+    ctx.font = `${s+18}px serif`;
+    ctx.fillText('✦', x, y);
+  }
+  ctx.restore();
+}
+
+function render(t){
+  // t in Sekunden ab Start
+  let year, p, scale=1, glow=0, tlAlpha=0, titleAlpha=1, title, sub='';
+
+  if(t < T_INTRO){
+    const k = t/T_INTRO;
+    year = START_YEAR; p = 0;
+    scale = lerp(0.7, 1, easeOutBack(Math.min(1,k*1.1)));
+    titleAlpha = Math.min(1, k*1.5);
+    tlAlpha = Math.min(1, k);
+    title = 'Eine kleine Zeitreise';
+    sub = 'Heute · ' + START_YEAR;
+  } else if(t < T_INTRO + T_SCROLL){
+    const k = (t - T_INTRO)/T_SCROLL;
+    const e = easeInOutCubic(k);
+    const yf = lerp(START_YEAR, END_YEAR, e);
+    year = Math.round(yf);
+    p = e;
+    tlAlpha = 1;
+    title = '… zurück durch die Jahre …';
+    drawBackground(p, t);
+    drawTimeline(yf, 1);
+    drawCalendar(year, p, 1, 0);
+    drawText(title, '', 1);
+    return;
+  } else {
+    const k = Math.min(1,(t - T_INTRO - T_SCROLL)/T_HOLD);
+    year = END_YEAR; p = 1;
+    glow = Math.sin(Math.min(1,k*2)*Math.PI/2);
+    scale = lerp(1, 1.06, easeOutBack(Math.min(1,k*1.6)));
+    tlAlpha = Math.max(0, 1-k*1.4);
+    title = 'Angekommen';
+    sub = weekday(END_YEAR) + ', 17. Juni ' + END_YEAR;
+    drawBackground(p, t);
+    if(tlAlpha>0) drawTimeline(END_YEAR, tlAlpha);
+    sparkles(t, glow);
+    drawCalendar(year, p, scale, glow);
+    drawText(title, sub, 1);
+    return;
+  }
+
+  drawBackground(p, t);
+  drawTimeline(year, tlAlpha);
+  drawCalendar(year, p, scale, glow);
+  drawText(title, sub, titleAlpha);
+}
+
+// --- Abspiel-Schleife ---
+let startTs = null, raf = null;
+function loop(ts){
+  if(startTs===null) startTs = ts;
+  const t = (ts - startTs)/1000;
+  render(Math.min(t, T_END));
+  if(t < T_END){ raf = requestAnimationFrame(loop); }
+}
+function play(){
+  cancelAnimationFrame(raf);
+  startTs = null;
+  raf = requestAnimationFrame(loop);
+}
+
+document.getElementById('replay').addEventListener('click', play);
+
+// --- Als Video (.webm) exportieren ---
+const saveBtn = document.getElementById('save');
+const hint = document.getElementById('hint');
+saveBtn.addEventListener('click', async () => {
+  if(!canvas.captureStream || !window.MediaRecorder){
+    hint.textContent = 'Video-Export wird von diesem Browser nicht unterstützt — nimm den Bildschirm auf.';
+    return;
+  }
+  const types = ['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+  const stream = canvas.captureStream(60);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+  const chunks = [];
+  rec.ondataavailable = e => { if(e.data.size) chunks.push(e.data); };
+  rec.onstop = () => {
+    const blob = new Blob(chunks, { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'zeitreise-17-juni-1956.' + (mime.includes('mp4')?'mp4':'webm');
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    saveBtn.disabled = false;
+    saveBtn.textContent = '🎬 Als Video speichern';
+    hint.textContent = 'Fertig! Video wurde heruntergeladen.';
+  };
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = '● Nehme auf …';
+  hint.textContent = 'Bitte warten, die Aufnahme läuft …';
+  rec.start();
+  play();
+  setTimeout(() => rec.stop(), (T_END + 0.3) * 1000);
+});
+
+// Automatisch starten
+play();
+function fitHint(){ hint.textContent = 'Tippe „Nochmal" zum erneuten Abspielen · „Als Video speichern" für eine Videodatei'; }
+fitHint();
+</script>
+</body>
+</html>
