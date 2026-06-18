@@ -19,25 +19,28 @@ const HTML = 'file://' + path.resolve(__dirname, '../public/zeitreise.html');
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--force-color-profile=srgb'],
   });
   const page = await browser.newPage();
-  await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
+  await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
   await page.goto(HTML, { waitUntil: 'load' });
 
-  // Auto-Play-Schleife stoppen, damit wir die Zeit selbst steuern
+  // Auf das Hintergrundbild warten, dann Auto-Play stoppen
+  await page.waitForFunction('window.bgReady === true', { timeout: 20000 });
   await page.evaluate(() => { try { cancelAnimationFrame(raf); } catch (e) {} });
 
   const T_END = await page.evaluate(() => T_END);
   const total = Math.ceil(T_END * FPS);
   console.log(`Rendere ${total} Frames (${T_END.toFixed(1)}s @ ${FPS}fps) …`);
 
+  // Overlay-Buttons ausblenden, damit sie nicht im Bild landen
+  await page.addStyleTag({ content: '#bar,#hint{display:none!important}' });
+  const canvasEl = await page.$('#c');
+
   for (let i = 0; i < total; i++) {
     const t = i / FPS;
-    const dataUrl = await page.evaluate((tt) => {
+    await page.evaluate((tt) => {
       try { cancelAnimationFrame(raf); } catch (e) {}
       render(tt);
-      return document.getElementById('c').toDataURL('image/png');
     }, t);
-    const b64 = dataUrl.split(',')[1];
-    fs.writeFileSync(path.join(OUT_DIR, `f${String(i).padStart(4, '0')}.png`), Buffer.from(b64, 'base64'));
+    await canvasEl.screenshot({ path: path.join(OUT_DIR, `f${String(i).padStart(4, '0')}.png`) });
     if (i % 30 === 0) process.stdout.write(`\r  ${i}/${total}`);
   }
   process.stdout.write(`\r  ${total}/${total}\n`);
