@@ -1,0 +1,412 @@
+============================================================
+ KI-UMFRAGE – EINGABEHILFE FÜR MICROSOFT FORMS
+ Engelbert-Bohn-Schule Karlsruhe
+============================================================
+
+WARUM DIESE DATEI?
+Der Word-Import von Microsoft Forms ist für diese Umfrage unzuverlässig
+(er kann keine Matrix-/Likert-Fragen erzeugen und liest Antwortoptionen
+oft nur als Text ein). Sicherer und am Ende schneller ist das manuelle
+Anlegen mit den folgenden fertigen Textbausteinen.
+
+ZEITAUFWAND: ca. 20-30 Minuten.
+
+------------------------------------------------------------
+DER WICHTIGSTE TRICK (spart viel Zeit):
+Bei Auswahl-/Mehrfachauswahl-Fragen NICHT jede Option einzeln tippen!
+1. Frage anlegen, Typ "Auswahl" wählen.
+2. Unten den gesamten Optionsblock dieser Frage hier markieren und kopieren.
+3. In das erste Optionsfeld in Forms einfügen (Strg+V).
+4. Forms fragt: "Mehrere Zeilen erkannt - als einzelne Optionen hinzufügen?"
+   -> Auf "Optionen hinzufuegen" / "Ja" klicken. Fertig.
+
+So sind alle Optionen einer Frage in 2 Sekunden drin.
+------------------------------------------------------------
+
+SO LEGT MAN DIE 4 LIKERT-FRAGEN AN (Frage 1, 8, 9, 11):
+- "Neue Frage hinzufuegen" -> Pfeil/Mehr -> Fragetyp "Likert".
+- Unter "Aussage" die Zeilen eintragen (= die Punkte, die bewertet werden).
+- Unter "Optionen" die Spalten eintragen (= die Skala, z. B. Trifft nicht zu ...).
+- "Erforderlich" aktivieren, wo unten "PFLICHT" steht.
+
+ALLGEMEIN:
+- Oben Titel + Einleitungstext einfügen (Block am Ende dieser Datei).
+- Pro Frage: Titel kopieren, Typ einstellen, Optionen einfügen, ggf. "Erforderlich".
+- Fuer "Sonstiges"-Optionen in Forms unten "Option 'Sonstiges' hinzufuegen" anklicken
+  (NICHT als normale Textoption tippen) - dann bekommen die Kolleg/innen ein Freitextfeld.
+- Anonym: Beim Teilen unter "Einstellungen" -> "Name aufzeichnen" auf "Anonym".
+
+
+############################################################
+ABSCHNITT A - BEKANNTHEIT UND BISHERIGE ERFAHRUNG
+############################################################
+
+=== FRAGE 1 ===  [Typ: LIKERT]  PFLICHT
+Titel:
+Wie gut kennen Sie die folgenden KI-Tools und Begriffe?
+
+Aussagen (= Zeilen, einzeln eintragen):
+ChatGPT
+Claude
+Google Gemini
+Microsoft Copilot
+Perplexity
+Fobizz
+F13 (KI-Assistent BW)
+schulKI
+Eduhu
+Large Language Models (LLM)
+KI-Chatbots
+KI-Agenten
+Prompting (Eingaben formulieren)
+
+Optionen (= Spalten/Skala):
+Kenne ich nicht
+Schon gehört
+Schon ausprobiert
+Nutze ich regelmäßig
+
+
+=== FRAGE 2 ===  [Typ: Auswahl - eine Antwort]  PFLICHT
+Titel:
+Wie häufig nutzen Sie KI-Tools privat (außerhalb der Schule)?
+
+Optionen (auf einmal einfügen):
+Nie
+Selten (einige Male im Jahr)
+Gelegentlich (monatlich)
+Regelmäßig (wöchentlich)
+Täglich oder fast täglich
+
+
+=== FRAGE 3 ===  [Typ: Mehrfachauswahl]  PFLICHT
+Titel:
+Welche KI-Tools nutzen Sie - privat oder beruflich - bereits?
+
+Optionen (auf einmal einfügen):
+ChatGPT
+Claude
+Google Gemini
+Microsoft Copilot
+Perplexity
+Fobizz
+F13
+schulKI
+Eduhu
+Ich nutze bisher keine KI-Tools
+-> danach zusätzlich "Sonstiges"-Option hinzufügen (Button in Forms)
+
+
+=== FRAGE 4 ===  [Typ: Mehrfachauswahl]  freiwillig
+Titel:
+Wie greifen Sie überwiegend auf KI-Tools zu?
+
+Optionen (auf einmal einfügen):
+Über den Browser (z. B. am PC/Laptop)
+Über eine App auf dem Smartphone/Tablet
+Über eine Desktop-Anwendung
+Bisher gar nicht
+
+
+=== FRAGE 5 ===  [Typ: Auswahl - eine Antwort]  PFLICHT
+Titel:
+Welche Version nutzen Sie überwiegend?
+
+Optionen (auf einmal einfügen):
+Nur kostenlose Versionen
+Mindestens ein kostenpflichtiges Abo (privat bezahlt)
+Kostenpflichtiges Abo, über andere/dienstlich bereitgestellt
+Ich nutze bisher keine KI-Tools
+
+
+############################################################
+ABSCHNITT B - BERUFLICHE NUTZUNG VON KI
+############################################################
+
+=== FRAGE 6 ===  [Typ: Auswahl - eine Antwort]  PFLICHT
+Titel:
+Wie häufig nutzen Sie KI für schulische bzw. berufliche Aufgaben?
+
+Optionen (auf einmal einfügen):
+Nie
+Selten
+Gelegentlich (monatlich)
+Regelmäßig (wöchentlich)
+Täglich oder fast täglich
+
+
+=== FRAGE 7 ===  [Typ: Mehrfachauswahl]  freiwillig
+Titel:
+Für welche schulischen Aufgaben haben Sie KI bereits genutzt?
+
+Optionen (auf einmal einfügen):
+Unterrichtsvorbereitung / Stundenplanung
+Erstellung von Arbeitsblättern
+Erstellung von Klassenarbeiten / Aufgaben
+Erstellung von Musterlösungen
+Differenzierung von Materialien
+Formulierung von Elternbriefen / Schülerhinweisen
+Recherche
+Zusammenfassung von Texten
+Ideenfindung / Brainstorming
+Korrekturunterstützung / Feedback
+Erstellung von Präsentationen
+Erstellung von Moodle-Inhalten
+Verwaltungs- und Organisationsaufgaben
+Bisher noch gar nicht
+-> danach zusätzlich "Sonstiges"-Option hinzufügen (Button in Forms)
+
+
+############################################################
+ABSCHNITT C - SELBSTEINSCHÄTZUNG
+############################################################
+
+=== FRAGE 8 ===  [Typ: LIKERT]  PFLICHT
+Titel:
+Wie schätzen Sie Ihre eigenen Kompetenzen im Umgang mit KI ein?
+
+Aussagen (= Zeilen):
+Ich fühle mich im Umgang mit KI-Tools sicher.
+Ich kann gute, zielführende Eingaben (Prompts) formulieren.
+Ich kann KI-Ergebnisse kritisch einordnen und überprüfen.
+Ich kenne die Chancen und Grenzen von KI gut.
+Ich kenne grundlegende Datenschutzaspekte beim KI-Einsatz.
+
+Optionen (= Spalten/Skala):
+Trifft nicht zu
+Trifft eher nicht zu
+Teils/teils
+Trifft eher zu
+Trifft voll zu
+
+
+############################################################
+ABSCHNITT D - EINSTELLUNG ZUR EINFÜHRUNG VON KI
+############################################################
+
+=== FRAGE 9 ===  [Typ: LIKERT]  PFLICHT
+Titel:
+Inwieweit stimmen Sie den folgenden Aussagen zu?
+
+Aussagen (= Zeilen):
+Ich stehe dem Einsatz von KI an unserer Schule grundsätzlich offen gegenüber.
+Ich erwarte einen konkreten Nutzen für meine tägliche Arbeit.
+Ich erhoffe mir eine spürbare Entlastung.
+Ich sehe Möglichkeiten, die Qualität meines Unterrichts zu verbessern.
+Ich habe Vorbehalte gegenüber dem Einsatz von KI.
+Ich wünsche mir klare schulische Regeln und Leitlinien zur KI-Nutzung.
+
+Optionen (= Spalten/Skala):
+Trifft nicht zu
+Trifft eher nicht zu
+Teils/teils
+Trifft eher zu
+Trifft voll zu
+
+
+=== FRAGE 10 ===  [Typ: Text - lange Antwort]  freiwillig
+Titel:
+Welche Hoffnungen oder Erwartungen verbinden Sie mit KI an unserer Schule? (optional)
+(Keine Optionen - im Texttyp "Lange Antwort" aktivieren)
+
+
+############################################################
+ABSCHNITT E - MÖGLICHE BEDENKEN UND UNTERSTÜTZUNGSBEDARF
+############################################################
+(Optionaler Hinweistext als Frage-Beschreibung von Frage 11 einfügen:
+"Im Folgenden geht es um Aspekte, die beim Einsatz von KI eine Rolle
+spielen können. Bitte geben Sie an, wie bedeutsam Ihnen die Punkte erscheinen.")
+
+=== FRAGE 11 ===  [Typ: LIKERT]  PFLICHT
+Titel:
+Wie wichtig sind Ihnen die folgenden Aspekte bei der Einführung von KI?
+
+Aussagen (= Zeilen):
+Datenschutz und sichere Datenverarbeitung
+Rechtliche Klarheit und Sicherheit
+Vermeidung zusätzlicher Arbeitsbelastung
+Ausreichend Zeit zur Einarbeitung
+Verlässliche Qualität der KI-Ergebnisse
+Umgang mit möglicher Täuschung durch Schülerinnen und Schüler
+Auswirkungen auf Prüfungen und Leistungsbewertung
+Vermeidung zu starker Abhängigkeit von Technik
+Gleichmäßige, faire Nutzung im Kollegium
+
+Optionen (= Spalten/Skala):
+Unwichtig
+Eher unwichtig
+Teils/teils
+Eher wichtig
+Sehr wichtig
+
+
+=== FRAGE 12 ===  [Typ: Bewertung - 5 Sterne/Zahlen]  PFLICHT
+Titel:
+Wie wichtig wäre Ihnen eine klare schulische Leitlinie zur KI-Nutzung?
+(In Forms: Fragetyp "Bewertung", Stufen = 5, Symbol = Zahl.
+ Beschriftung optional: 1 = gar nicht wichtig, 5 = sehr wichtig)
+
+
+=== FRAGE 13 ===  [Typ: Text - lange Antwort]  freiwillig
+Titel:
+Welche Bedenken oder offenen Fragen möchten Sie ansprechen? (optional)
+
+
+############################################################
+ABSCHNITT F - WÜNSCHE AN EINE SCHULISCHE KI-LÖSUNG
+############################################################
+
+=== FRAGE 14 ===  [Typ: Mehrfachauswahl]  PFLICHT
+Titel:
+Welche Anforderungen sollte eine schulische KI-Lösung erfüllen?
+
+Optionen (auf einmal einfügen):
+Einfache, intuitive Bedienung
+Schulische Lizenz / einheitlicher Zugang
+Datenschutzkonforme Nutzung
+Vorab geprüfte, empfohlene Tools
+Vorlagen für Unterrichtsmaterial
+Unterstützung bei Arbeitsblättern
+Unterstützung bei Klassenarbeiten
+Unterstützung bei Differenzierung
+Unterstützung bei Korrektur und Feedback
+Unterstützung bei Verwaltungsaufgaben
+Zentrale Prompt-Bibliothek (Sammlung bewährter Eingaben)
+Fortbildungsangebote
+Austauschmöglichkeiten im Kollegium
+-> danach zusätzlich "Sonstiges"-Option hinzufügen (Button in Forms)
+
+
+=== FRAGE 15 ===  [Typ: Mehrfachauswahl, Begrenzung auf max. 3]  freiwillig
+Titel:
+Welche drei dieser Punkte sind Ihnen am wichtigsten? (Bitte bis zu 3 auswählen)
+(In Forms: Mehrfachauswahl, unter "..." -> "Antworten begrenzen" auf max. 3)
+
+Optionen (auf einmal einfügen):
+Einfache Bedienung
+Schulische Lizenz / einheitlicher Zugang
+Datenschutzkonforme Nutzung
+Geprüfte Tools
+Vorlagen & Materialunterstützung
+Korrektur und Feedback
+Verwaltungsaufgaben
+Prompt-Bibliothek
+Fortbildung
+Kollegialer Austausch
+
+
+############################################################
+ABSCHNITT G - FORTBILDUNGSBEDARF
+############################################################
+
+=== FRAGE 16 ===  [Typ: Mehrfachauswahl]  PFLICHT
+Titel:
+Zu welchen Themen wünschen Sie sich Fortbildung?
+
+Optionen (auf einmal einfügen):
+Grundlagen: Was ist KI und wie funktioniert sie?
+Praktische Nutzung gängiger Tools (ChatGPT, Claude, Gemini u. a.)
+Prompting für Lehrkräfte (gute Eingaben formulieren)
+KI für die Unterrichtsvorbereitung
+KI für Arbeitsblätter und Klassenarbeiten
+KI für Differenzierung
+KI und Prüfungen / Leistungsbewertung
+KI und Datenschutz
+KI im jeweiligen Fachunterricht
+Best-Practice-Beispiele aus dem Kollegium
+Ich habe derzeit keinen Fortbildungsbedarf
+-> danach zusätzlich "Sonstiges"-Option hinzufügen (Button in Forms)
+
+
+=== FRAGE 17 ===  [Typ: Mehrfachauswahl]  freiwillig
+Titel:
+Welche Fortbildungsformate würden Sie bevorzugen?
+
+Optionen (auf einmal einfügen):
+Kurze schulinterne Workshops
+Kollegiale Kurzformate (Mikro-Fortbildungen)
+Selbstlernmaterialien zum eigenen Tempo
+Ganztägige bzw. längere Fortbildungen
+Externe Fortbildungen
+Voneinander lernen im Tandem / kleinen Gruppen
+-> danach zusätzlich "Sonstiges"-Option hinzufügen (Button in Forms)
+
+
+=== FRAGE 18 ===  [Typ: Auswahl - eine Antwort]  freiwillig
+Titel:
+Wären Sie bereit, eigene Erfahrungen oder Beispiele im Kollegium zu teilen?
+
+Optionen (auf einmal einfügen):
+Ja, gerne
+Eventuell, je nach Thema
+Eher nicht
+Nein
+
+
+############################################################
+ABSCHNITT H - FREIWILLIGE ANGABEN UND ABSCHLUSS
+############################################################
+(Hinweistext als Beschreibung von Frage 19 einfügen:
+"Die folgenden Angaben sind freiwillig. Sie können alle Felder frei lassen.")
+
+=== FRAGE 19 ===  [Typ: Auswahl - eine Antwort]  freiwillig
+Titel:
+Welchem Fachbereich fühlen Sie sich überwiegend zugehörig? (optional)
+
+Optionen (auf einmal einfügen):
+Allgemeinbildende Fächer
+Berufsbezogene/technische Fächer
+Wirtschaft / Verwaltung
+Sozialpädagogik / Pflege / Gesundheit
+Sprachen
+Naturwissenschaften
+Keine Angabe
+-> danach zusätzlich "Sonstiges"-Option hinzufügen (Button in Forms)
+
+
+=== FRAGE 20 ===  [Typ: Auswahl - eine Antwort]  freiwillig
+Titel:
+In welcher Funktion sind Sie überwiegend tätig? (optional)
+
+Optionen (auf einmal einfügen):
+Lehrkraft
+Lehrkraft mit Funktionsstelle / erweiterte Aufgaben
+Schulleitung / erweiterte Schulleitung
+Referendariat / im Vorbereitungsdienst
+Keine Angabe
+
+
+=== FRAGE 21 ===  [Typ: Text - kurze Antwort]  freiwillig
+Titel:
+Name (vollkommen freiwillig - nur, wenn Sie für Rückfragen ansprechbar sein möchten):
+
+
+=== FRAGE 22 ===  [Typ: Text - lange Antwort]  freiwillig
+Titel:
+Möchten Sie uns noch etwas mitteilen? (optional)
+
+
+############################################################
+TITEL UND EINLEITUNG (ganz oben in Forms einfügen)
+############################################################
+
+Formulartitel:
+Künstliche Intelligenz an unserer Schule
+
+Beschreibung/Einleitung:
+Liebe Kolleginnen und Kollegen,
+
+im kommenden Schuljahr möchten wir den Einsatz von Künstlicher Intelligenz (KI)
+an unserer Schule schrittweise und gut überlegt einführen. Bevor wir konkrete
+Entscheidungen treffen, ist uns Ihre Einschätzung wichtig: Welche Erfahrungen
+bestehen bereits, welche Wünsche und welche Bedenken gibt es im Kollegium?
+
+Diese Befragung ist anonym. Angaben zu Fachbereich, Funktion oder Name am Ende
+sind ausdrücklich freiwillig. Es gibt keine richtigen oder falschen Antworten -
+auch eine skeptische Haltung ist eine wertvolle Rückmeldung.
+
+Die Bearbeitung dauert etwa 10-15 Minuten. Vielen Dank, dass Sie sich die Zeit nehmen!
+
+============================================================
+ENDE
+============================================================
