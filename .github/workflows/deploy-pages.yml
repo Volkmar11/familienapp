@@ -33,6 +33,8 @@ jobs:
           # Werbeseite als Startseite (index.html) und unter eigenem Namen bereitstellen
           cp vermarktung.html _site/index.html
           cp vermarktung.html _site/vermarktung.html
+          # LehrerAssistent-Werbeseite mit veröffentlichen (falls vorhanden)
+          cp lehrerassistent.html _site/lehrerassistent.html 2>/dev/null || true
           # App-Icons mitkopieren (werden von der Seite referenziert)
           cp public/icon-180x180.png _site/public/ 2>/dev/null || true
           cp public/icon-192x192.png _site/public/ 2>/dev/null || true
