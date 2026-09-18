@@ -409,6 +409,7 @@ function archivEintrag(id) {
 /* ---------------- 4 Schüleranalysen ---------------- */
 
 let analyseKlasse = '';
+const anzahlNoten = (n) => (n === 1 ? '1 Note' : `${n} Noten`);
 
 export function analyse() {
   const d = S.state();
@@ -425,7 +426,7 @@ export function analyse() {
     ${d.klassen.length ? `<div class="feld">${feld('Klasse', 'klasseWahl', { wert: analyseKlasse, optionen: d.klassen.map((x) => [x.id, x.name]) })}</div>` : '<div class="empty">Legen Sie zuerst eine Klasse an.</div>'}
     ${k ? `
     <div class="card">
-      <div class="row"><div class="ic grad-teal">Ø</div><div class="txt"><b>${gesamt ? gesamt.toFixed(2).replace('.', ',') : '–'}</b><small>Notenschnitt der Klasse · ${alleNoten.length} Noten · ${sus.length} Lernende</small></div></div>
+      <div class="row"><div class="ic grad-teal">Ø</div><div class="txt"><b>${gesamt ? gesamt.toFixed(2).replace('.', ',') : '–'}</b><small>Notenschnitt der Klasse · ${anzahlNoten(alleNoten.length)} · ${sus.length === 1 ? '1 Lernende/r' : sus.length + ' Lernende'}</small></div></div>
     </div>
     <div class="section" style="margin-top:16px">
       <div class="section-h">Notenverteilung</div>
@@ -445,7 +446,7 @@ export function analyse() {
       <div class="liste">${sus.map((s) => {
         const f = S.foerderbedarf(s.id);
         return `<div class="item" data-s="${s.id}"><div class="txt"><b>${esc(S.anzeigeName(s))}</b>
-          <small>${esc(s.pseudonym)} · ${f.schnitt ? 'Ø ' + f.schnitt.toFixed(2).replace('.', ',') : 'keine Noten'} · ${S.notenVon(s.id).length} Noten</small></div>
+          <small>${esc(s.pseudonym)} · ${f.schnitt ? 'Ø ' + f.schnitt.toFixed(2).replace('.', ',') : 'keine Noten'} · ${anzahlNoten(S.notenVon(s.id).length)}</small></div>
           <span class="chev">›</span></div>`;
       }).join('') || '<div class="empty">Noch niemand eingetragen.</div>'}</div>
     </div>
