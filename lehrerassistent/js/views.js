@@ -130,7 +130,7 @@ export function klassen() {
       const sch = S.schnitt(noten);
       return `<div class="item" data-go="klasse:${k.id}">
         <div class="ic ${grad(d.klassen.indexOf(k))}" style="width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem">${esc(k.name.slice(0, 4))}</div>
-        <div class="txt"><b>${esc(k.name)}</b><small>${esc(S.BILDUNGSGAENGE[k.bildungsgang]?.label || '')} · ${anz} Lernende${sch ? ' · Ø ' + sch.toFixed(2).replace('.', ',') : ''}</small></div>
+        <div class="txt"><b>${esc(k.name)}</b><small>${esc(S.BILDUNGSGAENGE[k.bildungsgang]?.label || '')} · ${anz === 1 ? '1 Lernende/r' : anz + ' Lernende'}${sch ? ' · Ø ' + sch.toFixed(2).replace('.', ',') : ''}</small></div>
         <span class="chev">›</span></div>`;
     }).join('')}</div>` : '<div class="empty">Noch keine Klasse angelegt.<br>Legen Sie Ihre erste Klasse an – Lernfelder werden automatisch vorbelegt.</div>'}
     <div class="btn-row"><button class="btn btn-amber btn-block" id="neu">＋ Klasse anlegen</button></div>`;
