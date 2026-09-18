@@ -2,7 +2,7 @@ name: Deploy Marketing-Seite zu GitHub Pages
 
 on:
   push:
-    branches: ["main", "claude/family-app-marketing-site-r2172k"]
+    branches: ["main", "claude/lehrer-assistent-guitar-app-xvxji2"]
   workflow_dispatch:
 
 permissions:
@@ -35,6 +35,8 @@ jobs:
           cp vermarktung.html _site/vermarktung.html
           # LehrerAssistent-Werbeseite mit veröffentlichen (falls vorhanden)
           cp lehrerassistent.html _site/lehrerassistent.html 2>/dev/null || true
+          # LehrerAssistent-App (PWA) unter /lehrerassistent/ bereitstellen
+          if [ -d lehrerassistent ]; then cp -r lehrerassistent _site/lehrerassistent; fi
           # App-Icons mitkopieren (werden von der Seite referenziert)
           cp public/icon-180x180.png _site/public/ 2>/dev/null || true
           cp public/icon-192x192.png _site/public/ 2>/dev/null || true
