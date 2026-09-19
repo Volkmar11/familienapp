@@ -37,6 +37,8 @@ jobs:
           cp lehrerassistent.html _site/lehrerassistent.html 2>/dev/null || true
           # LehrerAssistent-App (PWA) unter /lehrerassistent/ bereitstellen
           if [ -d lehrerassistent ]; then cp -r lehrerassistent _site/lehrerassistent; fi
+          # LehrerAssistent Version 2 unter /lehrerassistent-v2/ bereitstellen
+          if [ -d lehrerassistent-v2 ]; then cp -r lehrerassistent-v2 _site/lehrerassistent-v2; fi
           # App-Icons mitkopieren (werden von der Seite referenziert)
           cp public/icon-180x180.png _site/public/ 2>/dev/null || true
           cp public/icon-192x192.png _site/public/ 2>/dev/null || true

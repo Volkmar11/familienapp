@@ -6,10 +6,34 @@ Dieses Repository hostet über GitHub Pages mehrere kleine Web-Projekte.
 | --- | --- |
 | `/` | Werbeseite „Wochen Champion" (`vermarktung.html`) |
 | `/lehrerassistent.html` | Werbeseite „LehrerAssistent" |
-| `/lehrerassistent/` | **LehrerAssistent – die App** (installierbare PWA) |
+| `/lehrerassistent-v2/` | **LehrerAssistent 2 – die aktuelle App** (installierbare PWA) |
+| `/lehrerassistent/` | LehrerAssistent – erste Fassung |
 | `src/`, `index.html` | Quellcode der React-App „Wochen Champion" (Vite) |
 
-## LehrerAssistent (Ordner `lehrerassistent/`)
+## LehrerAssistent 2 (Ordner `lehrerassistent-v2/`)
+
+Zweite Fassung nach dem React-Prototyp: Navigationsstapel, Strichsymbole, selbst
+gehostete Schriften (Fraunces, Manrope – keine Anfragen an Google), Titelbild mit
+Schullogo und frei wählbarem App-Symbol.
+
+Kern ist der Bereich **Individuelle Arbeitsblätter**: Die App leitet aus Noten,
+Mitarbeit, Fehlzeiten und den Beobachtungen zu jeder Person Niveau, Umfang, Hilfen
+und Zusatzangebote ab und erzeugt daraus je Person ein eigenes Arbeitsblatt –
+wahlweise als fertiger Prompt oder direkt über eine eigene Modellanbindung
+(Claude, ChatGPT oder ein OpenAI-kompatibles Schulmodell).
+
+```bash
+cd lehrerassistent-v2
+python3 -m http.server 8000
+```
+
+- `js/store.js` – Datenmodell, Startbestand, Ableitungen (Lernstand, Förderbedarf)
+- `js/ki.js` – Prompts, Lernprofile, Anbieteranbindung
+- `js/generieren.js` – gemeinsamer Ergebnisbereich (Ampel, Prompt, direkte Erzeugung)
+- `js/screens-*.js` – Bildschirme: Start, Klassen, Material, Werkzeuge, Profil
+- `js/icons.js` – Strichsymbole als Inline-SVG
+
+## LehrerAssistent, erste Fassung (Ordner `lehrerassistent/`)
 
 Eine reine Browser-App ohne Server und ohne Build-Schritt: statisches HTML,
 CSS und JavaScript-Module. Alle Daten liegen im `localStorage` des jeweiligen
