@@ -6,6 +6,25 @@ import { $, $$, esc, icon, screenEl, nav, abschnitt, zeile, karte, kv, leer, box
 import { ergebnis, zeigeErgebnis, archivieren, ampelBlock } from './generieren.js';
 import * as KI from './ki.js';
 
+function ohneKlasse(art) {
+  const d = S.state();
+  const fehlt = !d.klassen.length ? 'Klasse' : 'Lernende';
+  screenEl().innerHTML = `
+    ${nav({ titel: art === 'individuell' ? 'Individuelle Arbeitsblätter' : 'Material erstellen', unter: 'Noch nichts angelegt',
+      symbol: art === 'individuell' ? 'wand' : 'fileEdit', grad: 'g-violet' })}
+    <div class="pad">
+      ${box('info', fehlt === 'Klasse'
+        ? 'Legen Sie zuerst eine Klasse an – danach entstehen hier passende Materialien.'
+        : 'In dieser Klasse ist noch niemand eingetragen. Individuelle Blätter brauchen mindestens eine lernende Person.',
+        `Es fehlt noch eine ${fehlt}`)}
+      <div class="knopfspalte">
+        ${btn(fehlt === 'Klasse' ? 'Klasse anlegen' : 'Lernende eintragen', { ton: 'blue', symbol: 'plus', route: 'klassen' })}
+        ${art === 'individuell' ? geist('Material ohne Personenbezug erstellen', { symbol: 'fileEdit', route: 'assistent' }) : ''}
+        ${geist('Beispielklasse zum Ausprobieren', { symbol: 'sync', route: 'sync' })}
+      </div>
+    </div>`;
+}
+
 /* ---------- Menü ---------- */
 export function material() {
   const d = S.state();
@@ -63,12 +82,14 @@ let iv = null;
 
 export function individuell(_args, q = {}) {
   const d = S.state();
+  if (!d.klassen.length || !d.schueler.length) return ohneKlasse('individuell');
   if (!iv || q.klasse) {
     const kId = q.klasse || d.klassen[0]?.id || '';
     const k = S.klasse(kId);
     iv = {
       schritt: 1, klasseId: kId, lf: q.lf || k?.lernfelder[0]?.code || '',
-      thema: q.thema ? decodeURIComponent(q.thema) : (k?.lernfelder[0]?.themen.find((t) => t.status === 'aktuell')?.name || ''),
+      thema: q.thema ? decodeURIComponent(q.thema)
+        : (k?.lernfelder[0]?.themen.find((t) => t.status === 'aktuell')?.name || k?.lernfelder[0]?.themen[0]?.name || ''),
       ziel: '', auswahl: [], musterloesung: true, hinweisLehrkraft: true, anonym: d.profil.anonymisieren, zusatz: '',
       ergebnisse: {}, laeuft: false,
     };
@@ -210,11 +231,16 @@ function bindeIV() {
     iv.klasseId = e.target.value;
     const k = S.klasse(iv.klasseId);
     iv.lf = k?.lernfelder[0]?.code || '';
-    iv.thema = k?.lernfelder[0]?.themen.find((t) => t.status === 'aktuell')?.name || '';
+    iv.thema = k?.lernfelder[0]?.themen.find((t) => t.status === 'aktuell')?.name || k?.lernfelder[0]?.themen[0]?.name || '';
     iv.auswahl = S.schuelerDer(iv.klasseId).map((s) => s.id);
     zeichneIV();
   });
-  $('[name=lf]', el)?.addEventListener('change', (e) => { iv.lf = e.target.value; iv.thema = ''; zeichneIV(); });
+  $('[name=lf]', el)?.addEventListener('change', (e) => {
+    iv.lf = e.target.value;
+    const themen = S.klasse(iv.klasseId)?.lernfelder.find((l) => l.code === iv.lf)?.themen || [];
+    iv.thema = themen.find((t) => t.status === 'aktuell')?.name || themen[0]?.name || '';
+    zeichneIV();
+  });
   $$('#themenChips .chip', el).forEach((c) => c.onclick = () => { $('[name=thema]', el).value = c.dataset.wert; iv.thema = c.dataset.wert; zeichneIV(); });
 
   $$('[data-sus]', el).forEach((b) => b.onclick = () => {
@@ -312,6 +338,7 @@ const SCHRITTE = ['Klasse', 'Lernfeld', 'Thema', 'Zielniveau', 'Materialtyp', 'K
 
 export function assistent(_a, q = {}) {
   const d = S.state();
+  if (!d.klassen.length) return ohneKlasse('assistent');
   if (!as || q.klasse || q.typ) {
     const kId = q.klasse || d.klassen[0]?.id || '';
     const k = S.klasse(kId);

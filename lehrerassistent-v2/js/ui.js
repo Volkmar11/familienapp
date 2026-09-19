@@ -1,7 +1,7 @@
 /* Bausteine der Oberfläche */
 
 import { icon } from './icons.js';
-import { state } from './store.js';
+import { state, LOGO_STANDARD } from './store.js';
 
 export const $ = (s, r = document) => r.querySelector(s);
 export const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -17,11 +17,10 @@ export function nav({ titel, unter = '', symbol = '', grad = 'g-blue', zurueck =
     ${rechts}</div>`;
 }
 
+export const logoQuelle = () => state().profil.schullogo || LOGO_STANDARD;
+
 export function kopf({ ueber, titel, kursiv = '', rechts = '', logo = true }) {
-  const p = state().profil;
-  const marke = p.schullogo
-    ? `<div class="logo-kachel"><img src="${p.schullogo}" alt="Schullogo"></div>`
-    : `<div class="logo-kachel"><span>L+</span></div>`;
+  const marke = `<div class="logo-kachel schullogo"><img src="${logoQuelle()}" alt="Schullogo"></div>`;
   return `<div class="kopf">
     ${logo ? marke : ''}
     <div class="txt"><p>${esc(ueber)}</p><h1 class="serif">${esc(titel)}${kursiv ? `<br><span class="kursiv">${esc(kursiv)}</span>` : ''}</h1></div>
@@ -139,7 +138,7 @@ export function datei(name, inhalt, typ = 'text/plain;charset=utf-8') {
 }
 export function alsWord(name, titel, html) {
   const p = state().profil;
-  const logo = p.schullogo ? `<img src="${p.schullogo}" style="height:46px" alt="">` : '';
+  const logo = `<img src="${logoQuelle()}" style="height:46px" alt="">`;
   const kopfzeile = `<table style="width:100%;border:none;border-bottom:2px solid #1F4E79"><tr>
     <td style="border:none;padding:0 0 6pt">${logo}<div style="font-size:9pt;color:#1F4E79"><b>${esc(p.schule || '')}</b></div></td>
     <td style="border:none;padding:0 0 6pt;text-align:right;font-size:9pt;color:#475569">${esc(p.name || '')}${p.kuerzel ? ' (' + esc(p.kuerzel) + ')' : ''}<br>${new Date().toLocaleDateString('de-DE')}</td>

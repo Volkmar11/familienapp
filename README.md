@@ -14,7 +14,15 @@ Dieses Repository hostet über GitHub Pages mehrere kleine Web-Projekte.
 
 Zweite Fassung nach dem React-Prototyp: Navigationsstapel, Strichsymbole, selbst
 gehostete Schriften (Fraunces, Manrope – keine Anfragen an Google), Titelbild mit
-Schullogo und frei wählbarem App-Symbol.
+dem Logo der Engelbert-Bohn-Schule Karlsruhe (`icons/schullogo.png`, im Profil
+durch ein eigenes ersetzbar).
+
+Die App startet **leer**: keine Klassen, keine Namen, keine Beispieldaten. Beim
+ersten Start führt eine dreistufige Einrichtung durch Grunddaten, optional die
+erste Klasse und die Datenschutz- sowie KI-Einstellungen; danach richtet sich
+jede Lehrkraft alles Weitere selbst ein. Für bekannte Lernfeldkürzel (LF4, LF5,
+LF9, LF12) werden Bezeichnung und Themenliste vorbelegt. Eine Beispielklasse
+lässt sich unter „Daten & Austausch" bewusst nachladen.
 
 Kern ist der Bereich **Individuelle Arbeitsblätter**: Die App leitet aus Noten,
 Mitarbeit, Fehlzeiten und den Beobachtungen zu jeder Person Niveau, Umfang, Hilfen
@@ -31,6 +39,7 @@ python3 -m http.server 8000
 - `js/ki.js` – Prompts, Lernprofile, Anbieteranbindung
 - `js/generieren.js` – gemeinsamer Ergebnisbereich (Ampel, Prompt, direkte Erzeugung)
 - `js/screens-*.js` – Bildschirme: Start, Klassen, Material, Werkzeuge, Profil
+- `js/screens-einrichten.js` – Einrichtung beim ersten Start
 - `js/icons.js` – Strichsymbole als Inline-SVG
 
 ## LehrerAssistent, erste Fassung (Ordner `lehrerassistent/`)

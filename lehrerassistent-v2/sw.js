@@ -1,14 +1,14 @@
 /* Service Worker – macht die App offlinefähig. */
-const CACHE = 'lehrerassistent2-v1';
+const CACHE = 'lehrerassistent2-v2';
 const DATEIEN = [
   './', './index.html', './app.css', './manifest.webmanifest',
   './js/app.js', './js/store.js', './js/ui.js', './js/icons.js', './js/ki.js', './js/dsgvo.js',
   './js/generieren.js', './js/tresor.js', './js/sprache.js',
   './js/screens-start.js', './js/screens-klassen.js', './js/screens-material.js',
-  './js/screens-werkzeuge.js', './js/screens-profil.js',
+  './js/screens-werkzeuge.js', './js/screens-profil.js', './js/screens-einrichten.js',
   './fonts/fraunces-latin.woff2', './fonts/fraunces-latin-ext.woff2',
   './fonts/manrope-latin.woff2', './fonts/manrope-latin-ext.woff2',
-  './icons/icon-256.png', './icons/icon-512.png', './icons/apple-touch-icon.png',
+  './icons/icon-256.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/schullogo.png',
 ];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(DATEIEN)).then(() => self.skipWaiting()));

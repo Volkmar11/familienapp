@@ -2,7 +2,7 @@
 
 import * as S from './store.js';
 import { $, $$, esc, icon, screenEl, nav, kopf, abschnitt, zeile, karte, kv, leer, box, btn, geist, feld, werte,
-  sheet, zu, toast, frage, datei, bildLesen, alsWord, textHtml } from './ui.js';
+  sheet, zu, toast, frage, datei, bildLesen, alsWord, textHtml, logoQuelle } from './ui.js';
 import * as KI from './ki.js';
 
 export function profil() {
@@ -14,7 +14,7 @@ export function profil() {
     <div class="pad">
       <div class="karte" style="display:flex;align-items:center;gap:14px;margin-bottom:18px;background:linear-gradient(135deg,rgba(255,255,255,.08),rgba(255,255,255,.02))">
         <div style="width:60px;height:60px;border-radius:18px;background:var(--g-amber);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
-          ${p.schullogo ? `<img src="${p.schullogo}" alt="" style="width:100%;height:100%;object-fit:cover">` : `<span class="serif" style="font-size:22px;font-weight:700;color:#fff">${esc(p.kuerzel || 'Vr')}</span>`}
+          <span class="serif" style="font-size:22px;font-weight:700;color:#fff">${esc(p.kuerzel || (p.name || '?').slice(0, 2).toUpperCase())}</span>
         </div>
         <div style="min-width:0">
           <p class="serif" style="font-size:20px;font-weight:600">${esc(p.name || 'Name eintragen')}</p>
@@ -23,7 +23,7 @@ export function profil() {
         </div>
       </div>
 
-      ${zeile({ symbol: 'palette', grad: 'g-amber', titel: 'Erscheinungsbild', unter: `${p.theme === 'hell' ? 'Hell' : 'Dunkel'} · Schullogo${p.schullogo ? ' hinterlegt' : ' fehlt'}`, id: 'design', extra: 'data-sheet="design"' })}
+      ${zeile({ symbol: 'palette', grad: 'g-amber', titel: 'Erscheinungsbild', unter: `${p.theme === 'hell' ? 'Hell' : 'Dunkel'} · Schullogo${p.schullogo ? ' eigenes' : ' der Schule'}`, id: 'design', extra: 'data-sheet="design"' })}
       ${zeile({ symbol: 'settings', grad: 'g-slate', titel: 'Persönliche Einstellungen', unter: 'Name, Kürzel, Rolle, Schule', extra: 'data-sheet="person"' })}
       ${zeile({ symbol: 'sparkles', grad: 'g-violet', titel: 'KI-Anbindung', unter: KI.hatZugang() ? `${anbieter} · ${p.ki.modell}` : 'Prompt-Modus – kein Schlüssel hinterlegt', route: 'w/ki' })}
       ${zeile({ symbol: 'mail', grad: 'g-amber', titel: 'Standardton für E-Mails', unter: esc(p.emailTon), extra: 'data-sheet="ton"' })}
@@ -95,12 +95,12 @@ export function designSheet() {
     <div class="feld"><label>Schullogo (Titelbild, Kopfzeile, Word-Export)</label>
       <div class="karte" style="display:flex;align-items:center;gap:12px">
         <div style="width:64px;height:48px;border-radius:10px;background:var(--card-hi);display:flex;align-items:center;justify-content:center;overflow:hidden">
-          ${p.schullogo ? `<img src="${p.schullogo}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">` : `<span class="faint">${icon('school', 20)}</span>`}
+          <img src="${logoQuelle()}" alt="" style="max-width:100%;max-height:100%;object-fit:contain">
         </div>
-        <div style="flex:1"><p class="mini dim">PNG, JPG oder SVG – bleibt lokal gespeichert.</p></div>
+        <div style="flex:1"><p class="mini dim">${p.schullogo ? 'Eigenes Logo hinterlegt.' : 'Eingebaut: Logo der Engelbert-Bohn-Schule. Ein eigenes Logo ersetzt es nur auf diesem Gerät.'}</p></div>
       </div>
       <div class="knopfreihe" style="margin-top:8px">
-        ${geist('Logo wählen', { symbol: 'upload', id: 'logoWahl' })}${p.schullogo ? geist('Entfernen', { symbol: 'trash', id: 'logoWeg' }) : ''}
+        ${geist('Eigenes Logo wählen', { symbol: 'upload', id: 'logoWahl' })}${p.schullogo ? geist('Zurücksetzen', { symbol: 'trash', id: 'logoWeg' }) : ''}
       </div>
       <input type="file" id="logoDatei" accept="image/*" hidden>
     </div>
@@ -108,7 +108,7 @@ export function designSheet() {
     <div class="feld"><label>App-Symbol für den Homebildschirm</label>
       <div class="karte" style="display:flex;align-items:center;gap:12px">
         <div style="width:48px;height:48px;border-radius:12px;background:var(--g-blue);display:flex;align-items:center;justify-content:center;overflow:hidden">
-          ${p.appIcon ? `<img src="${p.appIcon}" alt="" style="width:100%;height:100%;object-fit:cover">` : `<span class="serif" style="color:#fff;font-weight:700;font-size:19px">L+</span>`}
+          <img src="${p.appIcon || 'icons/icon-256.png'}" alt="" style="width:100%;height:100%;object-fit:cover">
         </div>
         <div style="flex:1"><p class="mini dim">Wird beim nächsten Hinzufügen zum Homebildschirm verwendet.</p></div>
       </div>
@@ -228,10 +228,10 @@ export function sync() {
         Safari öffnen → Teilen-Symbol → <b>Zum Home-Bildschirm</b>. Danach startet LehrerAssistent wie eine App,
         mit eigenem Symbol und ohne Safari-Leiste – auch ohne Internet.</p>`))}
 
-      <div class="knopfspalte">
-        ${geist('Beispieldaten neu laden', { symbol: 'sync', id: 'demo' })}
-        ${geist('Leer starten (alles löschen)', { symbol: 'trash', id: 'leer' })}
-      </div>
+      ${abschnitt('Zum Ausprobieren', `
+        ${zeile({ symbol: 'sparkles', grad: 'g-violet', titel: 'Beispielklasse laden', unter: 'vier erfundene Profile, um die individuellen Blätter zu testen', chev: false, extra: 'id="demo"' })}
+        ${zeile({ symbol: 'settings', grad: 'g-slate', titel: 'Einrichtung erneut starten', unter: 'Grunddaten, erste Klasse, Datenschutz', chev: false, extra: 'id="neuEinrichten"' })}
+        ${zeile({ symbol: 'trash', grad: 'g-rose', titel: 'Alles löschen', unter: 'setzt die App auf den Auslieferungszustand zurück', chev: false, extra: 'id="leer"' })}`)}
     </div>`;
 
   $('#export').onclick = () => { datei(`lehrerassistent-sicherung-${S.heute()}.json`, JSON.stringify(S.state(), null, 2), 'application/json'); S.protokoll('Sicherung erstellt'); };
@@ -254,11 +254,12 @@ export function sync() {
       m.map((x, i) => `${i ? '<div style="page-break-before:always"></div>' : ''}<h1>${esc(x.titel)}</h1><p>${esc(x.art || '')} · ${S.fmtDatum(x.datum)}</p>${textHtml(x.ergebnis)}`).join(''));
   };
   $('#demo').onclick = async () => {
-    if (!await frage('Beispieldaten laden?', 'Der aktuelle Bestand wird durch die Musterklasse 1BM1 ersetzt.', 'Ersetzen')) return;
-    S.zuruecksetzen(true); location.hash = '#/start'; toast('Beispieldaten geladen');
+    if (!await frage('Beispielklasse laden?', 'Es entsteht die Klasse BSP1 mit vier erfundenen Profilen – zusätzlich zu Ihren eigenen Daten. Sie lässt sich jederzeit wieder löschen.', 'Laden')) return;
+    S.beispieleLaden(); location.hash = '#/klassen'; toast('Beispielklasse BSP1 angelegt');
   };
+  $('#neuEinrichten').onclick = () => { S.aendern((d) => { d.profil.eingerichtet = false; }); location.hash = '#/einrichten'; };
   $('#leer').onclick = async () => {
-    if (!await frage('Wirklich alles löschen?', 'Klassen, Lernende, Notizen und Materialien werden entfernt. Erstellen Sie vorher eine Sicherung.', 'Alles löschen')) return;
-    S.zuruecksetzen(false); location.hash = '#/start'; toast('Alles gelöscht');
+    if (!await frage('Wirklich alles löschen?', 'Klassen, Lernende, Notizen und Materialien werden entfernt und die Einrichtung startet neu. Erstellen Sie vorher eine Sicherung.', 'Alles löschen')) return;
+    S.zuruecksetzen(); location.hash = '#/einrichten'; toast('Alles gelöscht');
   };
 }

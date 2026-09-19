@@ -19,6 +19,22 @@ export const WERKZEUGE = [
   { id: 'gedaechtnis', titel: 'Gedächtnis', symbol: 'brain', grad: 'g-slate' },
 ];
 
+function ersteSchritte() {
+  const d = S.state();
+  const punkte = [
+    ['Klasse anlegen', 'Bezeichnung, Bildungsgang und Lernfelder', 'cap', 'g-blue', 'klassen', d.klassen.length > 0],
+    ['Stundenplan eintragen', 'Ihre Unterrichtsstunden der Woche', 'calendar', 'g-green', 'w/kalender', d.stunden.length > 0],
+    ['KI-Zugang einrichten', 'optional – sonst Prompt-Modus', 'sparkles', 'g-violet', 'w/ki', !!d.profil.ki.key],
+    ['Tresor anlegen', 'für Klarnamen und Pseudonyme', 'key', 'g-rose', 'w/tresor', !!d.tresor],
+  ];
+  return abschnitt('Erste Schritte', `
+    <div class="karte" style="margin-bottom:10px"><p class="mini dim" style="line-height:1.6">
+      Die App ist leer – so, wie sie sein soll. Richten Sie sie in Ihrem Tempo ein:
+      ohne Klasse funktionieren Notizen, Aufgaben, E-Mails und die Datenschutzprüfung bereits.</p></div>
+    ${punkte.map(([t, u, sym, g, r, fertig]) => zeile({ symbol: fertig ? 'checkCircle' : sym, grad: fertig ? 'g-emerald' : g,
+      titel: t, unter: u, route: r, pille: fertig ? 'erledigt' : '', pilleTon: fertig ? 'ok' : '' })).join('')}`);
+}
+
 const gruss = () => { const h = new Date().getHours(); return h < 11 ? 'Guten Morgen' : h < 17 ? 'Guten Tag' : 'Guten Abend'; };
 
 export function start() {
@@ -46,13 +62,14 @@ export function start() {
         <button class="schnell" data-go="klassen"><span class="tile g-sky">${icon('cap', 17)}</span>Klassen</button>
       </div>
 
-      ${abschnitt('Unterricht heute', stunden.length ? stunden.map(zeitZeile).join('') : leer('Heute ist kein Unterricht eingetragen.'), aktion('Stundenplan', 'w/kalender'))}
-      ${abschnitt('Termine heute', termine.length ? termine.map((t) => zeitZeile(t, true)).join('') : leer('Keine Termine für heute.'), aktion('Kalender', 'w/kalender'))}
-      ${abschnitt('Aufgaben heute', aufgaben.length ? aufgaben.map((a) => zeile({
+      ${!d.klassen.length ? ersteSchritte() : ''}
+      ${d.klassen.length ? abschnitt('Unterricht heute', stunden.length ? stunden.map(zeitZeile).join('') : leer('Heute ist kein Unterricht eingetragen.'), aktion('Stundenplan', 'w/kalender')) : ''}
+      ${d.klassen.length ? abschnitt('Termine heute', termine.length ? termine.map((t) => zeitZeile(t, true)).join('') : leer('Keine Termine für heute.'), aktion('Kalender', 'w/kalender')) : ''}
+      ${d.klassen.length || aufgaben.length ? abschnitt('Aufgaben heute', aufgaben.length ? aufgaben.map((a) => zeile({
         punkt: a.prio === 'hoch' ? 'b-bad' : a.prio === 'mittel' ? 'b-warn' : 'b-note',
         titel: a.titel, unter: a.faellig ? `fällig: ${S.tageBis(a.faellig) === 0 ? 'heute' : S.tageBis(a.faellig) === 1 ? 'morgen' : S.fmtKurz(a.faellig)}` : 'ohne Frist',
         route: 'aufgabe/' + a.id,
-      })).join('') : leer('Keine offenen Aufgaben.'), aktion('Alle', 'w/organisation'))}
+      })).join('') : leer('Keine offenen Aufgaben.'), aktion('Alle', 'w/organisation')) : ''}
 
       ${abschnitt('Deine Werkzeuge', `<div class="raster-2">${WERKZEUGE.map((w) => kachel({ ...w, route: 'w/' + w.id })).join('')}</div>`)}
 

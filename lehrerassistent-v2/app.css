@@ -210,9 +210,17 @@ input[type=checkbox].kipp:checked::after{transform:translateX(18px)}
 #tabs .tab.an{color:var(--accent-text)}
 #tabs .mitte{flex:1;display:flex;justify-content:center}
 #tabs .mikro{position:relative;border:none;background:none;cursor:pointer;padding:0;margin-top:-26px}
-#tabs .mikro .ring{position:absolute;inset:0;border-radius:50%;background:var(--g-amber);animation:puls 2s cubic-bezier(.45,.03,.51,.96) infinite}
+#tabs .mikro .ring{position:absolute;inset:0;border-radius:50%;background:var(--g-amber);opacity:.55;
+  animation:puls 2.8s cubic-bezier(.45,.03,.51,.96) infinite}
 #tabs .mikro .kreis{position:relative;display:flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:50%;
-  background:var(--g-amber);color:#fff;box-shadow:0 10px 26px rgba(234,88,12,.5),inset 0 1px 0 rgba(255,255,255,.35);border:4px solid var(--bg-3)}
+  background:var(--g-amber);color:#fff;border:4px solid var(--bg-3);animation:atmen 2.8s ease-in-out infinite}
+@keyframes atmen{
+  0%,100%{filter:brightness(.94);box-shadow:0 8px 20px rgba(234,88,12,.38),inset 0 1px 0 rgba(255,255,255,.3)}
+  50%{filter:brightness(1.2);box-shadow:0 14px 34px rgba(234,88,12,.78),inset 0 1px 0 rgba(255,255,255,.55)}}
+@media (prefers-reduced-motion: reduce){
+  #tabs .mikro .kreis{animation:none}
+  #tabs .mikro .ring{animation:none;opacity:.25}
+  .anim-up,.anim-in{animation:none}}
 
 /* Sheets */
 #sheet{position:fixed;inset:0;z-index:70;display:none;background:rgba(2,6,23,.6);backdrop-filter:blur(5px)}
@@ -277,6 +285,9 @@ pre.prompt{background:var(--card);border:1px solid var(--border);border-radius:1
   box-shadow:0 6px 18px rgba(37,99,235,.42);flex-shrink:0;overflow:hidden}
 .logo-kachel span{font-family:'Fraunces',Georgia,serif;font-weight:700;color:#fff;font-size:20px;letter-spacing:-.03em}
 .logo-kachel img{width:100%;height:100%;object-fit:cover}
+.logo-kachel.schullogo{background:rgba(255,255,255,.96);box-shadow:0 6px 16px rgba(2,6,23,.35);padding:4px}
+.logo-kachel.schullogo img{object-fit:contain}
+html[data-theme="hell"] .logo-kachel.schullogo{background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.14)}
 
 .g-amber{background:var(--g-amber)}.g-blue{background:var(--g-blue)}.g-indigo{background:var(--g-indigo)}
 .g-violet{background:var(--g-violet)}.g-teal{background:var(--g-teal)}.g-green{background:var(--g-green)}

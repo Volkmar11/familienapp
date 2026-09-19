@@ -1,13 +1,14 @@
 /* Einstieg: Titelbild, Navigation, Tab-Leiste, Sprachaufnahme */
 
 import * as S from './store.js';
-import { $, $$, esc, icon, screenEl, toast, sheet, zu } from './ui.js';
+import { $, $$, esc, icon, screenEl, toast, sheet, zu, logoQuelle } from './ui.js';
 import * as Start from './screens-start.js';
 import * as Kl from './screens-klassen.js';
 import * as Mat from './screens-material.js';
 import * as W from './screens-werkzeuge.js';
 import * as Pr from './screens-profil.js';
 import * as Sp from './sprache.js';
+import { einrichten } from './screens-einrichten.js';
 
 /* ---------- Navigation ---------- */
 const TABS = [
@@ -54,13 +55,14 @@ const SEITEN = {
   start: Start.start, klassen: Kl.klassen, klasse: Kl.klasse, liste: Kl.liste, schueler: Kl.schueler,
   blatt: Kl.blatt, analyse: Kl.analyse, gruppe: Kl.gruppe, lernfeld: Kl.lernfeld, thema: Kl.thema,
   assistent: Mat.assistent, material: Mat.materialDetail, termin: Start.termin, stunde: Start.stunde,
-  aufgabe: Start.aufgabe, sync: Pr.sync, profil: Pr.profil,
+  aufgabe: Start.aufgabe, sync: Pr.sync, profil: Pr.profil, einrichten,
 };
 
 let letzterPfad = '';
 function zeichne() {
   const { teile, q } = parse();
-  const name = teile[0] || 'start';
+  let name = teile[0] || 'start';
+  if (!S.state().profil.eingerichtet && name !== 'einrichten') { location.hash = '#/einrichten'; return; }
   const el = screenEl();
   const tief = teile.length > 1 || name === 'w';
   el.className = tief && letzterPfad !== location.hash ? 'anim-in' : 'anim-up';
@@ -76,6 +78,7 @@ function zeichne() {
       <button class="btn g-amber" data-go="start">Zur Startseite</button></div>`;
   }
   tabs(name);
+  $('#tabs').style.display = name === 'einrichten' ? 'none' : '';
 }
 
 export function gehe(route) {
@@ -185,12 +188,9 @@ function splash() {
   const el = document.createElement('div');
   el.id = 'splash';
   el.innerHTML = `
-    ${p.schullogo ? `<img class="schullogo" src="${p.schullogo}" alt="Schullogo">`
-      : `<div style="display:flex;align-items:center;gap:10px;color:var(--dim)">${icon('school', 26)}<span class="serif" style="font-size:16px">${esc(p.schule || 'Berufliche Schule')}</span></div>`}
-    <div class="marke">
-      <div class="logo-kachel" style="width:52px;height:52px;border-radius:16px">${p.appIcon ? `<img src="${p.appIcon}" alt="">` : '<span style="font-size:24px">L+</span>'}</div>
-      <h1 class="serif">LehrerAssistent</h1>
-    </div>
+    <img class="schullogo" src="${logoQuelle()}" alt="Schullogo">
+    <div class="marke"><h1 class="serif">LehrerAssistent</h1></div>
+    ${p.schule ? `<p style="margin-top:-6px;font-weight:600;color:var(--dim)">${esc(p.schule)}</p>` : ''}
     <p>Weniger Verwaltung. Mehr Unterricht.<br>Alle Daten bleiben auf diesem Gerät.</p>
     <div class="lade"><i></i></div>`;
   document.body.appendChild(el);
@@ -217,7 +217,8 @@ function init() {
   const d = S.laden();
   document.documentElement.dataset.theme = d.profil.theme || 'dunkel';
   symbolSetzen();
-  splash();
+  if (d.profil.eingerichtet) splash();
+  if (!d.profil.eingerichtet && !location.hash.includes('einrichten')) location.hash = '#/einrichten';
 
   document.addEventListener('click', (e) => {
     const go = e.target.closest('[data-go]');

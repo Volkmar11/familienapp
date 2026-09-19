@@ -37,15 +37,16 @@ export function klasseSheet(id = null) {
       ${feld('Block', 'block', { wert: k?.block || 'A', optionen: ['A', 'B', '—'] })}
     </div>
     ${feld('Ausbildungsjahr', 'jahr', { wert: k?.jahr || '1', optionen: ['1', '2', '3'] })}
-    ${feld('Lernfelder (Kürzel, durch Komma getrennt)', 'lfs', { wert: (k?.lernfelder || []).map((l) => l.code).join(', '), platz: 'LF4, LF5' })}
+    ${feld('Lernfelder (Kürzel, durch Komma getrennt)', 'lfs', { wert: (k?.lernfelder || []).map((l) => l.code).join(', '), platz: 'LF4, LF5',
+      hinweis: `Vorlagen mit Themen vorhanden für: ${S.LF_VORLAGEN.join(', ')}` })}
     <div class="knopfspalte">${btn('Speichern', { id: 'ok' })}${k ? geist('Klasse löschen', { symbol: 'trash', id: 'weg' }) : ''}</div>`, (el) => {
     el.querySelector('#ok').onclick = () => {
       const w = werte(el);
       if (!w.code.trim()) return toast('Bitte eine Bezeichnung angeben');
       const lfs = w.lfs.split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
-      const bauen = (code) => k?.lernfelder.find((l) => l.code === code) || { code, name: '', themen: [] };
+      const bauen = (code) => k?.lernfelder.find((l) => l.code === code) || S.lernfeldVorlage(code);
       if (k) S.aendern(() => Object.assign(k, { code: w.code.trim(), typ: w.typ, block: w.block, jahr: w.jahr, lernfelder: lfs.map(bauen) }));
-      else S.aendern((d) => d.klassen.push({ id: S.uid(), code: w.code.trim(), typ: w.typ, block: w.block, jahr: w.jahr, lernfelder: lfs.map((c) => ({ code: c, name: '', themen: [] })) }));
+      else S.aendern((d) => d.klassen.push({ id: S.uid(), code: w.code.trim(), typ: w.typ, block: w.block, jahr: w.jahr, lernfelder: lfs.map(S.lernfeldVorlage) }));
       zu(); toast('Gespeichert'); location.hash = '#/klassen';
     };
     el.querySelector('#weg')?.addEventListener('click', async () => {

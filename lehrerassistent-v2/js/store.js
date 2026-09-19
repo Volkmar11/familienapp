@@ -82,90 +82,53 @@ const SEED_SUS = [
   ['015', 'Elias Neumann', ['2,7', '3,0', '2,7'], 'gut', 'kooperativ', '1 Tag', [], [], 'Festigung Gewährleistung/Garantie.'],
 ];
 
+export const LOGO_STANDARD = 'icons/schullogo.png';
+
 function leer() {
-  const klassen = seedKlassen();
-  const k1 = klassen[0];
-  const schueler = SEED_SUS.map(([nr, name, noten, mitarbeit, verhalten, fehlzeiten, notizen, kollegen, foerder]) => ({
-    id: uid(), klasseId: k1.id, pseudonym: `1BM1-${nr}`, name,
-    noten: { LF4: noten[0], LF5: noten[1], LF9: noten[2] },
-    mitarbeit, verhalten, fehlzeiten,
-    notizen: notizen.map((t, i) => ({ id: uid(), datum: plusTage(-(i + 3)), text: t })),
-    kollegen: kollegen.map(([fach, text]) => ({ id: uid(), fach, text })),
-    foerder,
-  }));
-  const finde = (n) => schueler.find((s) => s.name === n)?.id;
-  const gruppen = [
-    { id: uid(), klasseId: k1.id, name: 'Fördergruppe Grundlagen', niveau: 'Einstieg', ziel: 'Basiskompetenzen Kaufvertrag festigen', schuelerIds: ['Jonas Keller', 'Paul Wagner', 'Ben Schneider'].map(finde), material: ['Basisaufgaben mit Lösungsschritten'] },
-    { id: uid(), klasseId: k1.id, name: 'Starke Schüler', niveau: 'Klausurniveau', ziel: 'Vertiefung & IHK-Vorbereitung', schuelerIds: ['Amira Haddad', 'Elif Yilmaz', 'Hannah Meier', 'Leon Weber'].map(finde), material: ['Zusatzfälle IHK-Niveau'] },
-    { id: uid(), klasseId: k1.id, name: 'Prüfungsvorbereitung', niveau: 'Prüfungsvorbereitung', ziel: 'Altklausuren wiederholen', schuelerIds: ['Emilia Roth', 'Lina Hoffmann'].map(finde), material: ['Altklausuren-Set'] },
-    { id: uid(), klasseId: k1.id, name: 'Wiederholung Kaufvertrag', niveau: 'Wiederholung', ziel: 'Rechtsbegriffe sichern', schuelerIds: ['Mara König', 'Tim Schuster', 'David Braun'].map(finde), material: ['Begriffskarten Recht'] },
-  ];
-  const tag = Math.min(Math.max(wochentag(), 1), 5);
   return {
     version: 2,
     profil: {
-      name: 'Marcus', kuerzel: 'Vr', rolle: 'Lehrkraft BWL / Recht', schule: 'Engelbert-Bohn-Schule Karlsruhe',
+      name: '', kuerzel: '', rolle: 'Lehrkraft', schule: 'Engelbert-Bohn-Schule Karlsruhe',
       theme: 'dunkel', schullogo: null, appIcon: null,
       emailTon: 'sachlich & freundlich',
       layout: 'Schulkopfzeile, klare Nummerierung, Quellenfeld, Platz für Lösungen',
-      anonymisieren: true,
+      anonymisieren: true, eingerichtet: false,
       ki: { anbieter: 'anthropic', modell: 'claude-sonnet-4-5', key: '', basisUrl: '' },
-      splashGesehen: false,
     },
-    klassen, schueler, gruppen,
-    stunden: [
-      { id: uid(), tag, zeit: '07:45 – 09:15', klasseId: k1.id, lf: 'LF4', thema: 'Beschaffung und Kaufvertrag', ort: 'Raum 204',
-        beschreibung: 'Einstieg in den Angebotsvergleich anhand eines Praxisfalls. Erarbeitung der Vergleichskriterien.',
-        todos: ['Fallbeispiel austeilen', 'Tabelle Angebotsvergleich vorbereiten'], material: ['AB Angebotsvergleich', 'Fallstudie Bürobedarf GmbH'], erinnerung: 'Beamer-Kabel mitnehmen' },
-      { id: uid(), tag, zeit: '09:35 – 11:05', klasseId: klassen[2].id, lf: 'LF9', thema: 'Marketing-Mix', ort: 'Raum 112',
-        beschreibung: 'Vertiefung der vier P. Gruppenarbeit zur Produktpolitik.',
-        todos: ['Gruppen einteilen', 'Plakate bereitlegen'], material: ['AB 4P'], erinnerung: 'Moderationskoffer holen' },
-      { id: uid(), tag: tag === 5 ? 4 : tag + 1, zeit: '11:20 – 12:50', klasseId: klassen[4].id, lf: 'LF9', thema: 'Investitionsrechnung', ort: 'Raum 308',
-        beschreibung: 'Kostenvergleichs- und Amortisationsrechnung am Praxisfall.', todos: ['Übungsblatt austeilen'], material: [], erinnerung: 'Formelsammlung bereitlegen' },
-    ],
-    termine: [
-      { id: uid(), datum: heute(), zeit: '11:20', titel: 'Notenlisten unterschreiben', ort: 'Lehrerzimmer', klasseId: '',
-        beschreibung: 'Notenlisten prüfen und digital bestätigen.', todos: ['Notenlisten 1BM1 prüfen'], erinnerung: 'Frist heute 14:00 Uhr' },
-      { id: uid(), datum: heute(), zeit: '13:00', titel: 'Team-Besprechung Berufsschule', ort: 'Raum 301', klasseId: '',
-        beschreibung: 'Abstimmung zum Einsatz von KI-Werkzeugen und Datenschutzfragen im Kollegium.',
-        todos: ['Erfahrungsbericht vorbereiten', 'DSGVO-Checkliste mitbringen'], erinnerung: 'Notebook mitnehmen' },
-      { id: uid(), datum: plusTage(4), zeit: '10:00', titel: 'Notenkonferenz', ort: 'Lehrerzimmer', klasseId: '', beschreibung: '', todos: [], erinnerung: '' },
-    ],
-    aufgaben: [
-      { id: uid(), titel: 'Notenlisten im Schulportal unterschreiben', prio: 'hoch', faellig: heute(), desc: 'Notenlisten der Klasse 1BM1 prüfen und digital bestätigen.', erledigt: false },
-      { id: uid(), titel: 'Arbeitsblatt LF4 für 1BM1 vorbereiten', prio: 'mittel', faellig: plusTage(1), desc: 'Thema Lieferungsverzug, differenziert nach Niveau.', erledigt: false, klasseId: k1.id, lf: 'LF4', thema: 'Lieferungsverzug' },
-      { id: uid(), titel: 'Rückmeldung an „Fördergruppe Grundlagen"', prio: 'mittel', faellig: plusTage(2), desc: 'Kurzes Feedback zu den Übungsaufgaben geben.', erledigt: false },
-      { id: uid(), titel: 'Datenschutz-Hinweis für KI-Nutzung prüfen', prio: 'hoch', faellig: plusTage(3), desc: 'Prüfen, ob personenbezogene Daten enthalten sind.', erledigt: false },
-      { id: uid(), titel: 'Klassenliste 1BM1 im Tresor sichern', prio: 'niedrig', faellig: '', desc: 'Klarnamen verschlüsselt ablegen und Pseudonyme vergeben.', erledigt: false },
-    ],
-    notizen: [
-      { id: uid(), klasseId: k1.id, schuelerId: '', lf: 'LF4', typ: 'Unterrichtsverlauf', sicht: 'nur ich', datum: heute(),
-        text: 'Die Gruppe verwechselt Lieferungsverzug und Schlechtleistung – nächste Stunde mit Fallbeispiel einsteigen.' },
-    ],
-    materialien: [], mails: [], protokoll: [], tresor: null,
-    gedaechtnis: [
-      { id: uid(), kat: 'Arbeitsblatt-Präferenz', symbol: 'fileEdit', grad: 'g-violet', aktiv: true,
-        info: 'Arbeitsblätter mit klarer Struktur, Schulkopfzeile, Musterlösung und Erwartungshorizont.',
-        quelle: 'Aus bisherigen Materialerstellungen abgeleitet.', verwendet: jetzt(),
-        nutzen: 'Neue Arbeitsblätter werden automatisch passend vorbereitet.',
-        punkte: ['Format: Word-Datei', 'Layout: Schulkopfzeile', 'Stil: klar, berufsschulnah', 'Aufgaben: praxisnahe Fälle mit Operatoren', 'Quellenfeld aktiv', 'Differenzierung häufig gewünscht'] },
-      { id: uid(), kat: 'E-Mail-Präferenz', symbol: 'mail', grad: 'g-amber', aktiv: true,
-        info: 'Dienstliche E-Mails sachlich und freundlich, eher kurz bis mittel.',
-        quelle: 'Aus bisherigen Entwürfen abgeleitet.', verwendet: jetzt(),
-        nutzen: 'Tonfall und Länge neuer E-Mails werden vorgeschlagen.',
-        punkte: ['Standardton: sachlich und freundlich', 'Länge: kurz bis mittel', 'Signatur: Schulmail', 'Sensible Themen deeskalierend'] },
-      { id: uid(), kat: 'Unterrichtspräferenz', symbol: 'cap', grad: 'g-sky', aktiv: true,
-        info: 'Häufig unterrichtete Klassen und Lernfelder werden für die schnellere Auswahl gemerkt.',
-        quelle: 'Aus Nutzungsverlauf abgeleitet.', verwendet: jetzt(),
-        nutzen: 'Beschleunigt Klassen- und Themenauswahl in den Assistenten.',
-        punkte: ['Häufige Klassen: 1BM1, 1BM2, 2BM1', 'Häufige Lernfelder: LF4, LF5, LF9', 'Häufige Themen: Kaufvertrag, Lieferungsverzug, Marketing-Mix'] },
-      { id: uid(), kat: 'Datenschutz-Präferenz', symbol: 'shield', grad: 'g-emerald', aktiv: true,
-        info: 'Personenbezogene Daten werden vor KI-Verarbeitung standardmäßig pseudonymisiert.',
-        quelle: 'Aus den Datenschutzeinstellungen abgeleitet.', verwendet: jetzt(),
-        nutzen: 'Schützt Schülerdaten und warnt vor Cloud-Verarbeitung.',
-        punkte: ['Standardmäßig anonymisieren', 'Namen vor KI-Nutzung prüfen', 'Cloud nur nach Warnhinweis', 'Tresor für sensible Daten'] },
-    ],
+    klassen: [], schueler: [], gruppen: [], stunden: [], termine: [], aufgaben: [],
+    notizen: [], materialien: [], mails: [], protokoll: [], tresor: null, gedaechtnis: [],
   };
+}
+
+/* Lernfeld-Vorlagen: beim Anlegen einer Klasse werden bekannte Kürzel vorbelegt. */
+export function lernfeldVorlage(code) {
+  const k = LF_KATALOG[String(code).toUpperCase()];
+  return k ? { code: String(code).toUpperCase(), name: k.name, themen: k.themen.map((t) => ({ name: t, status: 'offen' })) }
+           : { code: String(code).toUpperCase(), name: '', themen: [] };
+}
+export const LF_VORLAGEN = Object.keys(LF_KATALOG);
+
+/* Beispielklasse – nur auf ausdrücklichen Wunsch, zum Ausprobieren der Funktionen. */
+export function beispieleLaden() {
+  const k1 = { id: uid(), code: 'BSP1', typ: 'BM', block: 'A', jahr: '1',
+    lernfelder: [lernfeldVorlage('LF4'), lernfeldVorlage('LF5')] };
+  k1.lernfelder[0].themen.forEach((t, i) => { t.status = i < 6 ? 'erledigt' : i === 6 ? 'aktuell' : 'offen'; });
+  const muster = [
+    ['001', 'Beispiel A', ['2,0', '1,7'], 'sehr gut', 'engagiert, arbeitet selbstständig', '0 Tage', ['Starke Argumentation beim Angebotsvergleich'], 'Differenzierung nach oben.'],
+    ['002', 'Beispiel B', ['2,3', '2,0'], 'gut', 'zuverlässig', '2 Tage', ['Unsicher bei rechtlichen Fachbegriffen'], 'Rechtliche Fachbegriffe wiederholen.'],
+    ['003', 'Beispiel C', ['3,3', '3,0'], 'wechselhaft', 'freundlich, leicht ablenkbar', '4 Tage', ['Braucht klare Struktur bei Aufgaben'], 'Kleine Aufgabenpakete mit Struktur.'],
+    ['004', 'Beispiel D', ['4,3', '4,0'], 'gering', 'zurückhaltend', '8 Tage', ['Grundlagen lückenhaft'], 'Intensive Förderung, Lernplan.'],
+  ];
+  aendern((d) => {
+    d.klassen.push(k1);
+    muster.forEach(([nr, name, noten, mitarbeit, verhalten, fehlzeiten, notizen, foerder]) => {
+      d.schueler.push({ id: uid(), klasseId: k1.id, pseudonym: `BSP1-${nr}`, name,
+        noten: { LF4: noten[0], LF5: noten[1] }, mitarbeit, verhalten, fehlzeiten,
+        notizen: notizen.map((t, i) => ({ id: uid(), datum: plusTage(-(i + 2)), text: t })), kollegen: [], foerder });
+    });
+    d.aufgaben.unshift({ id: uid(), titel: 'Individuelle Arbeitsblätter für BSP1 ausprobieren', prio: 'mittel',
+      faellig: '', desc: 'Start → Individuell → Klasse BSP1 wählen.', erledigt: false, klasseId: k1.id, lf: 'LF4', thema: 'Lieferungsverzug' });
+  });
 }
 
 let db = null;
@@ -188,8 +151,10 @@ export function speichern() {
 }
 export function aendern(fn) { fn(db); speichern(); return db; }
 export function onChange(f) { horcher.add(f); return () => horcher.delete(f); }
-export function zuruecksetzen(mitBeispielen = true) {
-  db = mitBeispielen ? leer() : { ...leer(), klassen: [], schueler: [], gruppen: [], stunden: [], termine: [], aufgaben: [], notizen: [], materialien: [] };
+export function zuruecksetzen({ eingerichtetBehalten = false } = {}) {
+  const alt = db?.profil || {};
+  db = leer();
+  if (eingerichtetBehalten) db.profil = { ...db.profil, ...alt, eingerichtet: true };
   speichern();
 }
 
