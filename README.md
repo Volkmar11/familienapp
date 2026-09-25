@@ -8,7 +8,25 @@ Dieses Repository hostet über GitHub Pages mehrere kleine Web-Projekte.
 | `/lehrerassistent.html` | Werbeseite „LehrerAssistent" |
 | `/lehrerassistent-v2/` | **LehrerAssistent 2 – die aktuelle App** (installierbare PWA) |
 | `/lehrerassistent/` | LehrerAssistent – erste Fassung |
+| `/ebs-3d/` | Begehbares 3D-Modell der Engelbert-Bohn-Schule Karlsruhe (Three.js) |
 | `src/`, `index.html` | Quellcode der React-App „Wochen Champion" (Vite) |
+
+## 3D-Modell Engelbert-Bohn-Schule (Ordner `ebs-3d/`)
+
+Eine einzelne HTML-Datei ohne Build-Schritt; Three.js 0.169 kommt über jsDelivr.
+Zwei Ansichten: **Überblick** (drehen, zoomen) und **Rundgang** in Augenhöhe
+(WASD/Maus am Rechner, Steuerknüppel und Wischen am iPhone), dazu Lageplan zum
+Hinspringen, Orte-Menü und Tageszeit mit Sonnenstand für Karlsruhe.
+
+- Grundrisse, Wege, Parkplätze, Zäune: OpenStreetMap (ODbL), in einen an der
+  Gebäudeachse ausgerichteten Meter-Rahmen umgerechnet und in die Datei eingebettet
+- Fassade nach dem Außenfoto auf ebs-karlsruhe.de, Geschosshöhen aus dem Luftbild geschätzt
+- Innenräume sind nicht modelliert, der Wald ist zufällig verteilt
+
+```bash
+cd ebs-3d
+python3 -m http.server 8000
+```
 
 ## LehrerAssistent 2 (Ordner `lehrerassistent-v2/`)
 
