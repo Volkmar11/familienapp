@@ -200,9 +200,9 @@ input[type=range]{width:100%;accent-color:var(--signal);height:28px}
     <p>Das Schulgebäude an der Joachim-Kurzaj-Weg 4 teilen sich die <span class="k">Engelbert-Bohn-Schule</span> (seit 1983 in Oberreut) und die Sophie-Scholl-Realschule. Wegen der gelben Fensterrahmen heißt es im Viertel „Gelbe Schule“. Gebaut wurde es 1976–1980 in zwei Bauabschnitten.</p>
     <ul>
       <li><span class="k">Grundrisse, Wege, Parkplätze, Zäune:</span> <a href="https://www.openstreetmap.org/way/115852617" target="_blank" rel="noopener">OpenStreetMap</a> (© OpenStreetMap-Mitwirkende, ODbL), lagegenau übernommen.</li>
-      <li><span class="k">Schulfassade</span> (Trapezblech, gelbe Fensterrahmen, Betonsockel, zurückspringende Geschosse, Fischgrätpflaster): nach dem Außenfoto auf <a href="https://www.ebs-karlsruhe.de/" target="_blank" rel="noopener">ebs-karlsruhe.de</a>.</li>
+      <li><span class="k">Schulfassade</span> (Trapezblech mit Paneelstößen, gelbe Fensterrahmen, Betonsockel, zurückspringende Geschosse, geschlossener Treppenhauskörper am Haupteingang, gelber Windfang am Pausenhof-Eingang, bunt gestreifte Beeteinfassungen): nach den Fotos auf <a href="https://www.ebs-karlsruhe.de/" target="_blank" rel="noopener">ebs-karlsruhe.de</a>.</li>
       <li><span class="k">Höhenstaffelung</span> (Flügel zweigeschossig, Mittelkreuz dreigeschossig, Dachaufbau, Oberlichter): aus dem Luftbild abgeleitet (Esri World Imagery). Die Höhen sind geschätzt.</li>
-      <li><span class="k">Sporthalle Oberreut</span> (Doppel-Dreifeldhalle, eröffnet Ende Mai 2026): Halle 3 m abgesenkt, Dach auf +5,80 m, Hallenteil +7,00 m, Glasfassade mit V-Stützen aus Holz, Sichtbetonkerne mit farbigen Paneelen, Gründach mit Photovoltaik, Federball-Skulptur über dem Eingang. Nach den Fotos und Plänen der <a href="https://www.karlsruhe.de/stadt-rathaus/aktuelles/meldungen/doppelt-und-dreifach-gebaut" target="_blank" rel="noopener">Stadt Karlsruhe</a> und dem <a href="https://www.karlsruhe.de/mobilitaet-stadtbild/hochbau-und-architektur/hochbauwettbewerbe/jugendtreff-1-4" target="_blank" rel="noopener">Wettbewerbsentwurf</a>; Maße 100 × 45 m laut <a href="https://meinka.de/neue-sporthalle-im-schulzentrum-suedwest-in-karlsruhe-oberreut-eroeffnet/" target="_blank" rel="noopener">meinKA</a>.</li>
+      <li><span class="k">Sporthalle Oberreut</span> (Doppel-Dreifeldhalle, eröffnet Ende Mai 2026): flaches Dach mit dunkler Blende (Oberkante +5,80 m) und weiter Auskragung zur Promenade, heller Eingangsbaukörper mit Brettschalung, Oberlichtband und Federball-Skulptur, Glasfassaden mit bronzefarbenen Paneelen, Halle 3 m abgesenkt mit Holzbindern, Oberlichtfirsten, Tribüne und weißen V-Stützen innen. Vorplatz mit Fischgrätpflaster, Rasenfeld, Sitzblöcken, Edelstahlpollern, Pilzleuchten, jungen Bäumen und Ansaugtürmen des Erdwärmetauschers. Nach Fotos von <a href="https://www.karl-braun-innenausbau.de/referenzen/neubau-grund-und-realschule-3-2/" target="_blank" rel="noopener">Karl Braun Innenausbau</a>, <a href="https://www.bmp.de/news/eroeffnung-der-neuen-sporthalle-im-schulzentrum-suedwest-in-oberreut/" target="_blank" rel="noopener">BMP</a>, der <a href="https://www.karlsruhe.de/stadt-rathaus/aktuelles/meldungen/ein-juwel-fuer-oberreut" target="_blank" rel="noopener">Stadt Karlsruhe</a> und einem eigenen Foto vom Vorplatz; Schnitt aus dem <a href="https://www.karlsruhe.de/mobilitaet-stadtbild/hochbau-und-architektur/hochbauwettbewerbe/jugendtreff-1-4" target="_blank" rel="noopener">Wettbewerbsentwurf</a>. Die Nordostseite ist nach Innenfotos ergänzt.</li>
       <li><span class="k">Geschichte:</span> <a href="https://stadtlexikon.karlsruhe.de/index.php/De:Lexikon:ins-1687" target="_blank" rel="noopener">Stadtlexikon Karlsruhe</a>, <a href="https://ka.stadtwiki.net/Engelbert-Bohn-Schule" target="_blank" rel="noopener">Stadtwiki Karlsruhe</a>.</li>
     </ul>
     <p>Nicht modelliert: Innenräume der Schule. Geschätzt oder symbolisch: Lage der Pausenhofflächen, Bänke, einzelne Hofbäume, das Schild am Vorplatz und die Einrichtung hinter den Fenstern. Der Wald (Kiefern, Laubbäume, Farne) ist zufällig verteilt; die Herbstfärbung richtet sich nach dem heutigen Datum.</p>
@@ -342,15 +342,18 @@ function blotches(g,w,h,n,col,rmin,rmax,a){
 const TX = {};
 function buildTextures(){
   // Trapezblech (1 m), waagrechte Rippen wie auf dem Schulfoto
-  TX.corr = tex(512,512,(g,hg,w,h)=>{
-    g.fillStyle='#b9b4a6';g.fillRect(0,0,w,h);
-    const p=h/16;
-    for(let i=0;i<16;i++){const y=i*p;
-      const gr=g.createLinearGradient(0,y,0,y+p);gr.addColorStop(0,'rgba(255,255,255,.16)');gr.addColorStop(.45,'rgba(255,255,255,.04)');gr.addColorStop(.62,'rgba(0,0,0,.18)');gr.addColorStop(1,'rgba(0,0,0,.08)');g.fillStyle=gr;g.fillRect(0,y,w,p);
+  // Trapezblech (2 m Kachel): Paneele 1 m, waagrechte Rippen, Stöße und Schmutzfahnen wie auf den Schulfotos
+  TX.corr = tex(1024,1024,(g,hg,w,h)=>{
+    g.fillStyle='#b8b3a4';g.fillRect(0,0,w,h);
+    for(let i=0;i<4;i++){const px=(i%2)*w/2,py=(i>>1)*h/2,l=rr(-1,1);g.fillStyle=l>0?`rgba(255,255,245,${l*.08})`:`rgba(40,36,28,${-l*.1})`;g.fillRect(px,py,w/2,h/2);}
+    const p=h/32;
+    for(let i=0;i<32;i++){const y=i*p;
+      const gr=g.createLinearGradient(0,y,0,y+p);gr.addColorStop(0,'rgba(255,255,255,.17)');gr.addColorStop(.45,'rgba(255,255,255,.04)');gr.addColorStop(.62,'rgba(0,0,0,.2)');gr.addColorStop(1,'rgba(0,0,0,.08)');g.fillStyle=gr;g.fillRect(0,y,w,p);
       const hgr=hg.createLinearGradient(0,y,0,y+p);hgr.addColorStop(0,'#303030');hgr.addColorStop(.14,'#d8d8d8');hgr.addColorStop(.5,'#d8d8d8');hgr.addColorStop(.64,'#303030');hgr.addColorStop(1,'#303030');hg.fillStyle=hgr;hg.fillRect(0,y,w,p);}
-    for(let i=0;i<90;i++){const x=R()*w;g.fillStyle=`rgba(${R()<.5?'60,56,48':'255,255,250'},${rr(.02,.06)})`;g.fillRect(x,R()*h*.3,rr(1,5),h);}
-    g.fillStyle='rgba(40,38,32,.35)';g.fillRect(0,0,3,h);hg.fillStyle='#606060';hg.fillRect(0,0,2,h);
-  },{normal:5});
+    for(let i=0;i<110;i++){const x=R()*w,y0=R()*h*.6,len=rr(h*.15,h*.8);const gr=g.createLinearGradient(0,y0,0,y0+len);gr.addColorStop(0,`rgba(58,54,44,${rr(.05,.2)})`);gr.addColorStop(1,'rgba(58,54,44,0)');g.fillStyle=gr;g.fillRect(x,y0,rr(2,14),len);}
+    for(const x of[0,w/2]){g.fillStyle='rgba(45,42,36,.5)';g.fillRect(x,0,3,h);hg.fillStyle='#505050';hg.fillRect(x,0,3,h);}
+    for(const y of[0,h/2]){g.fillStyle='rgba(45,42,36,.35)';g.fillRect(0,y,w,2);}
+  },{rep:[.5,.5],normal:5});
   TX.concrete = tex(512,512,(g,hg,w,h)=>{
     g.fillStyle='#a8a59c';g.fillRect(0,0,w,h);blotches(g,w,h,40,'rgba(90,86,76,A)',30,90,.08);blotches(g,w,h,30,'rgba(230,228,220,A)',30,80,.08);
     specks(g,hg,w,h,9000,['#9a978e','#b5b2aa','#8d8a82'],1,2.5,150);
@@ -500,9 +503,31 @@ function buildTextures(){
   TX.grass = alphaTex(256,256,(g,w,h)=>{g.lineCap='round';for(let i=0;i<70;i++){const x=w/2+rr(-50,50),l=rr(.4,.95)*h,b=rr(-40,40);
     g.strokeStyle=`hsl(${rr(70,100)},${rr(35,55)}%,${rr(24,44)}%)`;g.lineWidth=rr(2,4);g.beginPath();g.moveTo(x,h);g.quadraticCurveTo(x+b*.3,h-l*.6,x+b,h-l);g.stroke();}});
   TX.pool = alphaTex(128,128,(g,w,h)=>{const gr=g.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);gr.addColorStop(0,'rgba(255,214,150,1)');gr.addColorStop(.5,'rgba(255,190,120,.35)');gr.addColorStop(1,'rgba(255,180,110,0)');g.fillStyle=gr;g.fillRect(0,0,w,h);});
-  TX.logo = alphaTex(512,256,(g,w,h)=>{g.fillStyle='#d7d4cd';g.fillRect(0,0,w,h);
-    g.fillStyle='#d6203a';g.beginPath();g.moveTo(40,70);g.quadraticCurveTo(150,20,240,70);g.quadraticCurveTo(200,110,170,190);g.quadraticCurveTo(120,110,40,70);g.fill();
-    g.fillStyle='#ffffff';g.font='600 30px "Barlow Semi Condensed",sans-serif';g.fillText('Sporthalle',80,90);g.fillText('Oberreut',92,122);});
+  // Logo "Sporthalle Oberreut": roter Bumerang mit weißer Schrift (wie am Eingang)
+  TX.logo = alphaTex(512,512,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#c8102e';
+    g.beginPath();g.moveTo(40,70);g.quadraticCurveTo(250,20,468,64);g.quadraticCurveTo(500,110,452,152);g.lineTo(318,196);g.quadraticCurveTo(262,300,312,436);
+    g.quadraticCurveTo(300,486,252,468);g.quadraticCurveTo(150,330,42,160);g.quadraticCurveTo(14,110,40,70);g.fill();
+    g.fillStyle='#fff';g.font='600 50px "Barlow Semi Condensed",Arial,sans-serif';g.fillText('Sporthalle',74,116);g.fillText('Oberreut',74,164);});
+  TX.board = tex(512,512,(g,hg,w,h)=>{ // heller Beton mit senkrechter Brettschalung (Eingangsbaukörper Sporthalle)
+    g.fillStyle='#d3cec3';g.fillRect(0,0,w,h);
+    for(let x=0;x<w;x+=w/16){const l=rr(-9,9);g.fillStyle=`rgb(${211+l},${206+l},${195+l})`;g.fillRect(x,0,w/16,h);
+      for(let k=0;k<6;k++){g.fillStyle=`rgba(150,140,120,${rr(.05,.12)})`;g.fillRect(x+R()*w/16,0,1,h);}
+      g.fillStyle='rgba(120,112,98,.35)';g.fillRect(x,0,1.5,h);hg.fillStyle='#606060';hg.fillRect(x,0,1.5,h);}
+    specks(g,hg,w,h,5000,['#c8c2b6','#dcd8ce'],1,2,150);},{rep:[.5,.5],normal:2});
+  TX.fasciaH = tex(512,128,(g,hg,w,h)=>{g.fillStyle='#4e5357';g.fillRect(0,0,w,h);const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'rgba(255,255,255,.08)');gr.addColorStop(1,'rgba(0,0,0,.14)');g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.fillStyle='#2a2d2f';g.fillRect(0,0,3,h);hg.fillStyle='#303030';hg.fillRect(0,0,3,h);},{rep:[1/3,1/1.1],normal:2});
+  TX.soffitH = tex(512,512,(g,hg,w,h)=>{g.fillStyle='#dddbd5';g.fillRect(0,0,w,h);
+    g.fillStyle='rgba(120,120,115,.5)';g.fillRect(0,0,w,2);g.fillRect(0,0,2,h);g.fillRect(0,h/2,w,2);hg.fillStyle='#505050';hg.fillRect(0,0,w,2);hg.fillRect(0,0,2,h);hg.fillRect(0,h/2,w,2);
+    g.fillStyle='#8a8a86';g.beginPath();g.arc(w/2,h/4,8,0,7);g.fill();g.fillStyle='#fbfbf5';g.beginPath();g.arc(w/2,h/4,5,0,7);g.fill();},{rep:[1/2.5,1/2.5],normal:1.5});
+  TX.bronze = tex(256,512,(g,hg,w,h)=>{g.fillStyle='#5e5346';g.fillRect(0,0,w,h);for(let i=0;i<300;i++){g.fillStyle=R()<.5?`rgba(255,240,210,${rr(.02,.05)})`:`rgba(20,16,10,${rr(.02,.05)})`;g.fillRect(0,R()*h,w,1);}
+    g.fillStyle='#3a332b';g.fillRect(0,0,w,3);g.fillRect(0,0,3,h);hg.fillStyle='#303030';hg.fillRect(0,0,w,3);hg.fillRect(0,0,3,h);},{rep:[1/1.55,1/2.35],normal:1.5});
+  TX.stripes = tex(512,64,(g,hg,w,h)=>{ // bunt gestreifte Beeteinfassung im Pausenhof (Schulfoto)
+    const cols=['#e53935','#fdd835','#1e88e5','#43a047','#fb8c00','#8e24aa','#00acc1','#f06292','#7cb342','#3949ab','#ffb300','#26a69a','#6d4c41','#ffffff'];
+    let x=0,last=-1;while(x<w){const sw=rr(14,28);let c;do{c=(R()*cols.length)|0;}while(c===last);last=c;g.fillStyle=cols[c];g.fillRect(x,0,sw+1,h);x+=sw;}
+    specks(g,hg,w,h,1500,['rgba(255,255,255,.15)','rgba(0,0,0,.12)'],1,2,140);},{rep:[1/4,1/.55],normal:1.5});
+  TX.hdoor = alphaTex(512,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#61717a');gr.addColorStop(1,'#232b30');g.fillStyle=gr;g.fillRect(0,0,w,h);
+    g.fillStyle='rgba(255,236,200,.18)';g.fillRect(0,h*.2,w,h*.8);g.fillStyle='#2a2e31';for(let i=0;i<=6;i++)g.fillRect(i*w/6-5,0,10,h);g.fillRect(0,0,w,10);g.fillRect(0,h-8,w,8);
+    g.fillStyle='#c9c9c4';for(let i=0;i<6;i++)g.fillRect(i*w/6+(i%2?8:w/6-12),h*.45,4,50);});
   TX.stele = alphaTex(256,512,(g,w,h)=>{g.fillStyle='#2b2f2d';g.fillRect(0,0,w,h);g.fillStyle='#e2b30b';g.fillRect(24,40,6,150);
     g.fillStyle='#f2f1ec';g.font='700 25px "Barlow Semi Condensed",sans-serif';g.fillText('SCHULZENTRUM',44,66);g.fillText('SÜDWEST',44,94);
     g.font='500 21px "Barlow Semi Condensed",sans-serif';g.fillText('Engelbert-Bohn-',44,140);g.fillText('Schule',44,164);g.fillText('Sophie-Scholl-',44,206);g.fillText('Realschule',44,230);
@@ -533,6 +558,7 @@ function buildMaterials(){
     soffit: std({color:0xe2dfd6,roughness:.8}),
     forest: std({...TX.forest,roughness:1,normalScale:nrm(1)}),
     lawn: layer(std({...TX.lawn,roughness:1}),1),
+    lawnTop: layer(std({...TX.lawn,roughness:1}),7),
     sand: layer(std({...TX.sand,roughness:1}),2),
     pav: layer(std({...TX.pav,roughness:.85}),3),
     dirt: layer(std({...TX.dirt,roughness:1}),2),
@@ -567,7 +593,19 @@ function buildMaterials(){
     lamp: std({color:0x303436,roughness:.4,metalness:.7}),
     lampHead: std({color:0xf4f1e6,emissive:0xffd9a0,emissiveIntensity:0,roughness:.3}),
     stripLight: std({color:0xeeeeee,emissive:0xfff4e0,emissiveIntensity:.4,roughness:.3}),
-    logo: std({map:TX.logo,roughness:.8}),
+    logo: std({map:TX.logo,roughness:.45,alphaTest:.5}),
+    board: std({...TX.board,roughness:.85}),
+    fasciaH: std({...TX.fasciaH,roughness:.35,metalness:.6}),
+    soffitH: std({...TX.soffitH,roughness:.7}),
+    bronze: std({...TX.bronze,roughness:.4,metalness:.6}),
+    hdoor: std({map:TX.hdoor,roughness:.15,metalness:.3,emissive:0xffe8c0,emissiveMap:TX.hdoor,emissiveIntensity:0}),
+    brassDoor: std({color:0xb8995e,roughness:.3,metalness:.85}),
+    stripes: std({...TX.stripes,roughness:.7}),
+    benchStone: std({...TX.concrete,color:0xf2e4c6,roughness:.8}),
+    steel: std({color:0xd0d3d4,roughness:.22,metalness:.9}),
+    brass: std({color:0xb89a62,roughness:.28,metalness:.9}),
+    glassHall: std({color:0x9fb6bf,roughness:.03,metalness:.5,transparent:true,opacity:.42,envMapIntensity:1.6,depthWrite:false}),
+    gallery: layer(std({color:0x2a2c2e,roughness:.5}),5),
     stele: std({map:TX.stele,roughness:.6,metalness:.2}),
     uglass: std({color:0xdfe3e2,roughness:.25,metalness:.2,transparent:true,opacity:.8,envMapIntensity:1.2}),
   });
@@ -643,7 +681,8 @@ function flushInst(){
     m.castShadow=true;m.receiveShadow=true;scene.add(m);}
 }
 // Fensterband mit echten Rahmen: Glas 12 cm zurückgesetzt, gelbe Pfosten und Riegel
-function windowBand(ring,y0,y1,{mod=1.35,depth=.12,tr=.26,frame='frameY',glass='glass',per=8,sill='sill'}={}){
+function windowBand(ring,y0,y1,{mod=1.35,depth=.12,tr=.26,frame='frameY',glass='glass',per=8,sill='sill',closed=null}={}){
+  if(closed)closedPanels(ring,y0,y1,mod,closed);
   const G=offsetRing(ring,depth);
   band(G,G,y0,y1,glass,{mod,per});
   hstrip(ring,G,y0+.001,sill);hstrip(ring,G,y1-.001,frame,true);
@@ -657,6 +696,15 @@ function windowBand(ring,y0,y1,{mod=1.35,depth=.12,tr=.26,frame='frameY',glass='
   }
 }
 
+// geschlossene Trapezblechfelder statt Fenster (z. B. Treppenhauskörper)
+function closedPanels(ring,y0,y1,mod,zones){const n=ring.length;
+  for(let i=0;i<n;i++){const a=ring[i],b=ring[(i+1)%n];const len=Math.hypot(b[0]-a[0],b[1]-a[1]);if(len<.3)continue;
+    const e=[(b[0]-a[0])/len,(b[1]-a[1])/len],o=[e[1],-e[0]];const cnt=Math.max(1,Math.round(len/mod)),st=len/cnt;
+    for(let j=0;j<cnt;j++){const mu=a[0]+e[0]*(j+.5)*st,mv=a[1]+e[1]*(j+.5)*st;if(!zones.some(z=>pip(mu,mv,z)))continue;
+      const p0=[a[0]+e[0]*j*st+o[0]*.01,a[1]+e[1]*j*st+o[1]*.01],p1=[a[0]+e[0]*(j+1)*st+o[0]*.01,a[1]+e[1]*(j+1)*st+o[1]*.01];
+      quad('corr',V3(p0[0],p0[1],y0),V3(p1[0],p1[1],y0),V3(p1[0],p1[1],y1),V3(p0[0],p0[1],y1),[[j*st,y0],[(j+1)*st,y0],[(j+1)*st,y1],[j*st,y1]],new THREE.Vector3(o[0],0,-o[1]));}}}
+const ZC=[rect(17,28,26,37)];
+
 /* =========================================================
    Szene aufbauen
    ========================================================= */
@@ -666,14 +714,18 @@ const P0 = (()=>{const r=P0o.slice();const i=r.findIndex(p=>p[0]===23.7&&p[1]===
   r.splice(i+1,0,[23.65,35],[20.15,35],[20.15,43],[23.65,43]);return r;})();
 const CROSS = ccw([[-8.4,-28.0],[7,-28.0],[7,5.3],[28,5.3],[28,31],[22,31],[22,39.5],[-8.4,39.5],[-8.4,31],[-30,31],[-30,5.3],[-8.4,5.3]]);
 const HOF = [[-12,-45],[44,-45],[44,3.9],[-12,3.9]];
+const HOFBEDS = [[19.5,-1.4,32,2.7],[19.5,-14.5,31,-7.4],[34.5,-4.2,41,1.3]];
 const VORPLATZ = [[23.6,30.5],[33,30.5],[33,63],[-10,63],[-10,55.8],[23.6,55.8]];
 const schoolApron = offsetRing(P0o,-2.5);
 // Sporthalle: Dachumriss (OSM), Glaslinie, abgesenkte Halle (-3 m), erhöhter Dachteil (+7 m)
-const HALL = rect(49.5,-128.2,92.1,-24.0);
-const HG = rect(52,-125.7,90.8,-26.5);
-const PIT = rect(64,-121,90.5,-31);
-const HUP = rect(63,-122,91,-30);
-const CORES = [-116,-99,-82,-65,-48].map(c=>rect(50.3,c-2.2,55,c+2.2));
+const HALL = rect(49.5,-128.2,92.1,-24.0);   // Dachumriss (OSM)
+const HG = rect(53.5,-126.2,90.6,-26.0);      // Fassadenlinie
+const HGB = ccw([[53.5,-126.2],[90.6,-126.2],[90.6,-26],[75.5,-26],[75.5,-28],[68.5,-28],[68.5,-26],[53.5,-26]]);
+const PIT = rect(64.5,-121,90.3,-31);          // Hallenboden -3 m
+const PITR = rect(64.3,-121.2,90.5,-30.8);     // Öffnung im Flachdach für die Hallendächer
+const HALLS = [[-121.2,-76],[-76,-30.8]];
+const HPLAZA = rect(40,-24,101,3.6);           // Vorplatz Sporthalle / Campus zwischen Schule und Halle
+const PROM = rect(38,-130,49.5,-24);           // Promenade an der Südwestseite
 const blockers=[];
 
 function buildSchool(){
@@ -684,13 +736,13 @@ function buildSchool(){
   band(P0,offsetRing(P0,.6),3.0,3.9,'corr');
   // 1. Obergeschoss
   wall(P1,3.9,4.7,'corr');
-  windowBand(P1,4.7,6.6);
+  windowBand(P1,4.7,6.6,{closed:ZC});
   band(P1,P2,6.6,7.6,'corr');
   cap(P2,7.6,'roof');parapet(P2,7.6,.38,.25);
   cap(rect(20.15,35,23.65,43),3.9,'soffit',[],true);
   // 2. Obergeschoss (Mittelkreuz)
   wall(CROSS,7.6,8.4,'corr');
-  windowBand(CROSS,8.4,10.3);
+  windowBand(CROSS,8.4,10.3,{closed:ZC});
   wall(CROSS,10.3,11.3,'corr');
   cap(CROSS,11.3,'roof');parapet(CROSS,11.3,.45,.25);
   // Dachaufbau mit Glasoberlicht
@@ -710,7 +762,9 @@ function buildSchool(){
   // Haupteingang: Türen, Leuchten, Stele
   const doorPlane=(u,v0,v1,h)=>quad('door',V3(u,v0,0),V3(u,v1,0),V3(u,v1,h),V3(u,v0,h),[[0,0],[1,0],[1,1],[0,1]],new THREE.Vector3(1,0,0));
   doorPlane(20.05,35.6,42.4,2.98);doorPlane(16.5,-6.9,-1.6,2.9);
-  box('coping',17.3,-4.25,3.0,1.6,6.4,.25);
+  // gelber Windfang am Pausenhof-Eingang (Schulfoto)
+  box('frameY',17.1,-4.25,2.92,1.9,6.9,.42);box('frameY',15.55,-4.25,2.92,2.4,6.3,.42);
+  for(const [u,v] of[[18.0,-7.6],[18.0,-0.9]])box('frameY',u,v,0,.2,.2,2.92);
   for(let v=36.5;v<42;v+=2.5)box('stripLight',21.9,v,3.84,.5,.5,.05);
   box('stele',31.5,44.6,0,.22,1.3,2.3,0);
   // Collision
@@ -718,9 +772,16 @@ function buildSchool(){
 }
 
 function buildSchoolGrounds(){
-  cap(schoolApron,.02,'pav');cap(HOF,.02,'pav');cap(VORPLATZ,.02,'pav');
-  cap(rect(28.5,38.5,31.5,41.5),.03,'lawn');wall(ccw(rect(28.5,38.5,31.5,41.5)),0,.12,'curb');
-  cap(rect(12,-44,20,-39),.03,'lawn');cap(rect(30,-44,42,-26),.03,'lawn');
+  cap(schoolApron,.02,'pav');cap(HOF,.025,'asph');cap(VORPLATZ,.02,'pav');
+  // Baumbeete mit bunt gestreiften Mäuerchen vor dem Pausenhof-Eingang
+  const rrect=(u0,v0,u1,v1,r)=>{const pts=[];for(const [cu,cv_,a0] of[[u1-r,v1-r,0],[u0+r,v1-r,Math.PI/2],[u0+r,v0+r,Math.PI],[u1-r,v0+r,1.5*Math.PI]])
+    for(let k=0;k<=5;k++){const a=a0+k/5*Math.PI/2;pts.push([cu+Math.cos(a)*r,cv_+Math.sin(a)*r]);}return pts;};
+  for(const bd of HOFBEDS){const r=ccw(rrect(...bd,1.6));cap(r,.14,'soil');
+    for(let i=0;i<r.length;i++){const a=r[i],b=r[(i+1)%r.length];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<.05)continue;
+      box('stripes',(a[0]+b[0])/2,(a[1]+b[1])/2,0,L+.06,.34,.55,Math.atan2(b[1]-a[1],b[0]-a[0]),true);}
+    blockers.push({r,b:bbox(r)});}
+  cap(rect(28.5,38.5,31.5,41.5),.03,'lawnTop');wall(ccw(rect(28.5,38.5,31.5,41.5)),0,.12,'curb');
+  cap(rect(12,-44,20,-39),.03,'lawnTop');cap(rect(30,-44,42,-26),.03,'lawnTop');
   wall(ccw(rect(30,-44,42,-26)),0,.1,'curb');
   // Hochbeete im umzäunten Schulgarten
   for(let i=0;i<3;i++)for(let j=0;j<2;j++){box('planks',-64+i*6,6+j*6,0,4,1.4,.55,0,true);box('soil',-64+i*6,6+j*6,.55,3.7,1.1,.02);}
@@ -736,60 +797,118 @@ function buildSchoolGrounds(){
   quad('mark',V3(24.4,45.2,.07),V3(28,45.2,.07),V3(28,45.35,.07),V3(24.4,45.35,.07),[[0,0],[1,0],[1,1],[0,1]],UP);
 }
 
+// Glasfassade als Pfosten-Riegel-Konstruktion zwischen a und b (Außenseite rechts von a→b)
+function curtain(a,b,y0,y1,{sp=1.55,tr=[2.7],glass='glassHall',frame='mullion',panel=null}={}){
+  const len=Math.hypot(b[0]-a[0],b[1]-a[1]);const e=[(b[0]-a[0])/len,(b[1]-a[1])/len],o=[e[1],-e[0]],rot=Math.atan2(e[1],e[0]);
+  const cnt=Math.max(1,Math.round(len/sp)),st=len/cnt;const ex=new THREE.Vector3(o[0],0,-o[1]);
+  for(let j=0;j<cnt;j++){const p0=[a[0]+e[0]*j*st,a[1]+e[1]*j*st],p1=[a[0]+e[0]*(j+1)*st,a[1]+e[1]*(j+1)*st];
+    const k=panel&&panel(j,cnt)?'bronze':glass;
+    quad(k,V3(p0[0],p0[1],y0),V3(p1[0],p1[1],y0),V3(p1[0],p1[1],y1),V3(p0[0],p0[1],y1),[[j*st,y0],[(j+1)*st,y0],[(j+1)*st,y1],[j*st,y1]],ex);}
+  for(let j=0;j<=cnt;j++){const t=j*st;inst(frame,a[0]+e[0]*t+o[0]*.03,a[1]+e[1]*t+o[1]*.03,(y0+y1)/2,.06,y1-y0,.12,rot);}
+  const cu=(a[0]+b[0])/2+o[0]*.03,cvv=(a[1]+b[1])/2+o[1]*.03;
+  inst(frame,cu,cvv,y0+.04,len,.08,.12,rot);inst(frame,cu,cvv,y1-.04,len,.08,.12,rot);for(const t of tr)inst(frame,cu,cvv,t,len,.06,.12,rot);
+}
+const young=[];
 function buildHall(){
-  // Dach: auskragende Platte +5,80 m mit Loch für den erhöhten Hallenteil
-  cap(HALL,5.8,'green',[HUP]);cap(HALL,5.3,'soffit',[HUP],true);wall(HALL,5.3,5.95,'fascia');parapet(HALL,5.8,.15,.3,'fascia');
-  band(HUP,HUP,5.3,5.8,'soffit',{inner:true});
-  // Erhöhter Hallenteil +7,00 m mit Oberlichtband
-  wall(HUP,5.8,6.85,'uglass');wall(HUP,6.85,7.2,'fascia');cap(HUP,7.0,'green');parapet(HUP,7.0,.2,.3,'fascia');cap(HUP,6.85,'wood',[],true);
-  // Glasfassade mit dunklen Pfosten (1,5 m)
-  const HGc=ccw(HG);
-  wall(HGc,0,5.3,'glassClear');
-  for(let i=0;i<4;i++){const a=HGc[i],b=HGc[(i+1)%4];const len=Math.hypot(b[0]-a[0],b[1]-a[1]);const e=[(b[0]-a[0])/len,(b[1]-a[1])/len],rot=Math.atan2(e[1],e[0]);const cnt=Math.round(len/1.5);
-    for(let j=0;j<=cnt;j++){const t=j*len/cnt;inst('mullion',a[0]+e[0]*t,a[1]+e[1]*t,2.65,.06,5.3,.14,rot);}
-    const cu=(a[0]+b[0])/2,cv=(a[1]+b[1])/2;inst('mullion',cu,cv,.05,len,.1,.14,rot);inst('mullion',cu,cv,2.9,len,.06,.14,rot);inst('mullion',cu,cv,5.25,len,.1,.14,rot);}
-  // Innen: Boden, abgesenkte Halle, Tribüne, Holzwände, Deckenbinder
-  cap(HG,.03,'floorIn',[PIT]);
-  const PITc=ccw(PIT);band(PITc,PITc,-3,0,'panelWood',{inner:true});
-  // Spielfeld mit Linien (zwei Dreifeldhallen)
-  {const L=90,Wd=26.5,c=cv(512,1740),g=c.getContext('2d'),sx=512/Wd,sy=1740/L;
-    g.fillStyle='#89929a';g.fillRect(0,0,512,1740);
-    for(let hh=0;hh<2;hh++){const oy=hh*45*sy;g.fillStyle='#b9a888';g.fillRect(4*sx,oy+10*sy,15*sx,25*sy);
-      const line=(col,x,y,w,h)=>{g.strokeStyle=col;g.lineWidth=3;g.strokeRect(x*sx,oy+y*sy,w*sx,h*sy);};
-      line('#f2f2f2',3,2.5,20,40);line('#2a2a2a',1.5,4,23,37);line('#c93a30',4,8,18,29);line('#2f5fbf',5,14,16.5,17);line('#2f9a4f',7,9,12,27);
-      g.strokeStyle='#f2f2f2';g.lineWidth=3;g.beginPath();g.arc(13*sx,oy+2.5*sy,6*sx,0,Math.PI);g.stroke();g.beginPath();g.arc(13*sx,oy+42.5*sy,6*sx,Math.PI,0);g.stroke();
-      g.beginPath();g.moveTo(3*sx,oy+22.5*sy);g.lineTo(23*sx,oy+22.5*sy);g.stroke();g.beginPath();g.arc(13*sx,oy+22.5*sy,1.8*sx,0,7);g.strokeStyle='#c93a30';g.stroke();}
-    const t=toTex(c);t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;M.court=std({map:t,roughness:.35});
-    const m=new THREE.Mesh(new THREE.PlaneGeometry(Wd,L),M.court);m.rotation.x=-Math.PI/2;m.position.copy(V3(77.25,-76,-3));m.receiveShadow=true;scene.add(m);}
-  for(let i=0;i<6;i++){const u0=67.6-(i+1)*.6;box('sicht',u0+.3,-76,-3,.6,86,(i+1)*.5);box('wood',u0+.3,-76,-3+(i+1)*.5,.45,86,.05);}
-  for(let v=-118;v<=-34;v+=2)inst('mullion',64.05,v,.5,.04,1,.04);inst('mullion',64.05,-76,1.0,.05,.05,84);
-  for(let v=-120;v<=-32;v+=2.6){box('wood',77,v,5.95,27.6,.22,.9,0,true);box('stripLight',77,v+1.3,5.9,20,.12,.05);}
-  for(const v of[-120.9,-31.1])for(const u of[72,82]){box('white',u,v,-.35,1.8,.05,1.05);inst('orange',u,v+(v<-76?.45:-.45),.05,.46,.02,.46);}
-  // Sichtbetonkerne mit farbigen Paneelen (Südwestseite)
-  const cols=['cYel','cGrn','cTur','cLim','cYel'];
-  CORES.forEach((c,i)=>{const r=ccw(c);wall(r,0,5.3,'sicht');const b=bbox(c);quad(cols[i],V3(50.28,b[1]+.3,.4),V3(50.28,b[3]-.3,.4),V3(50.28,b[3]-.3,4.6),V3(50.28,b[1]+.3,4.6),[[0,0],[4,0],[4,4],[0,4]],new THREE.Vector3(-1,0,0));blockers.push({r,b:bbox(r)});});
-  // V-Stützen aus Holz entlang der Längsseiten
-  for(let v=-121;v<=-30;v+=9.1){for(const [u,skip] of[[91.45,false],[50.9,true]]){if(skip&&CORES.some(c=>v>c[0][1]-2&&v<c[2][1]+2))continue;
-    cyl('wood',V3(u,v,0),V3(u,v-2.1,5.3),.13,10);cyl('wood',V3(u,v,0),V3(u,v+2.1,5.3),.13,10);}}
-  // Eingang Nordwest: Vordach, Türen, Logo-Wand, Federball-Skulptur
-  box('sicht',69,-25.3,3.0,13,2.6,.5,0,true);
-  for(let u=64;u<=74;u+=2.5)inst('mullion',u,-26.45,1.25,.08,2.5,.1);
-  box('sicht',78.5,-26.2,0,5,.6,3.5,0,true);quad('logo',V3(76.2,-25.88,.6),V3(80.8,-25.88,.6),V3(80.8,-25.88,2.9),V3(76.2,-25.88,2.9),[[1,0],[0,0],[0,1],[1,1]],new THREE.Vector3(0,0,-1));
+  /* Dach: Flachdach mit dunkler Blende (+4,70 bis +5,80 m), helle Untersicht mit Einbauleuchten,
+     über den beiden Hallen je ein flach geneigtes Dach mit querlaufendem Oberlichtfirst (+7,00 m) */
+  cap(HALL,5.8,'green',[PITR]);cap(HALL,4.7,'soffitH',[PITR],true);
+  wall(HALL,4.7,5.8,'fasciaH');parapet(HALL,5.8,.12,.3,'fascia');
+  band(PITR,PITR,4.7,5.8,'soffitH',{inner:true});
+  const u0=PITR[0][0],u1=PITR[1][0];
+  const slopes=[];
+  for(const [a,b] of HALLS){const vc=(a+b)/2;slopes.push([a,vc-1.3],[b,vc+1.3]);
+    cap(rect(u0,vc-1.3,u1,vc+1.3),7.18,'skylight');wall(ccw(rect(u0,vc-1.3,u1,vc+1.3)),6.7,7.2,'fasciaH');
+    for(let u=u0+1.3;u<u1;u+=1.3)inst('mullion',u,vc,7.2,.05,.05,2.6);}
+  for(const [ve,vr] of slopes){
+    const dn=vr<ve;
+    quad('green',V3(u0,ve,5.8),V3(u1,ve,5.8),V3(u1,vr,7.0),V3(u0,vr,7.0),[[u0,ve],[u1,ve],[u1,vr],[u0,vr]],UP);
+    quad('wood',V3(u0,ve,5.45),V3(u1,ve,5.45),V3(u1,vr,6.65),V3(u0,vr,6.65),[[u0,ve],[u1,ve],[u1,vr],[u0,vr]],DOWN);
+    for(const [u,s] of[[u0,-1],[u1,1]])quad('fasciaH',V3(u,ve,5.8),V3(u,vr,5.8),V3(u,vr,7.0),V3(u,vr,7.0),[[ve,5.8],[vr,5.8],[vr,7],[vr,7]],new THREE.Vector3(s,0,0));
+    // Photovoltaik auf den Dachflächen
+    const L=Math.abs(vr-ve);for(let t=1.4;t<L-1;t+=2.4){const v=ve+(vr-ve)*t/L,y=5.8+1.2*t/L+.25;
+      for(let u=u0+1.2;u<u1-1;u+=1.04)inst('pv',u,v,y,1,.04,1.7,0,dn?.2:-.2);}
+  }
+  for(let v=-125;v<=-27;v+=2.4)for(let u=51.2;u<63.3;u+=1.04)inst('pv',u,v,6.05,1,.04,1.7,0,-.2);
+  // Blitzschutzstangen
+  [[51,-25.2],[63,-25.2],[80,-25.2],[91.2,-25.6],[50.4,-60],[50.4,-95],[91.4,-60],[91.4,-95],[51,-127.4],[91,-127.4]].forEach(([u,v])=>inst('steel',u,v,7.3,.035,3,.035));
+
+  /* Nordwestseite (Vorplatz): Foyer-Glasfassade, heller Eingangsbaukörper mit Brettschalung,
+     eingezogener Eingang, Logo-Block, Oberlichtband, Federball-Skulptur */
+  curtain([64.5,-26],[53.5,-26],0,4.7,{tr:[2.7,4.5]});
+  curtain([90.6,-26],[88.5,-26],0,4.7,{tr:[2.7]});
+  curtain([88.5,-27],[64.5,-27],3.8,4.7,{tr:[]});
+  const EV=ccw([[64.5,-31],[88.5,-31],[88.5,-26],[75.5,-26],[75.5,-28],[68.5,-28],[68.5,-26],[64.5,-26]]);
+  wall(EV,0,3.8,'board');cap(rect(64.5,-31,88.5,-26),3.8,'roof');wall(ccw(rect(64.5,-31,88.5,-26)),3.8,3.9,'coping');
+  box('board',72,-27,2.9,7,2,.9,0,true);
+  quad('hdoor',V3(68.55,-27.96,0),V3(75.45,-27.96,0),V3(75.45,-27.96,2.9),V3(68.55,-27.96,2.9),[[1,0],[0,0],[0,1],[1,1]],new THREE.Vector3(0,0,-1));
+  for(let u=70;u<75;u+=1.8)box('stripLight',u,-27,2.87,.5,.5,.03);
+  box('board',66.5,-25.82,0,4,.36,3.8,0,true);
+  quad('logo',V3(65.45,-25.62,1.55),V3(67.55,-25.62,1.55),V3(67.55,-25.62,3.55),V3(65.45,-25.62,3.55),[[1,0],[0,0],[0,1],[1,1]],new THREE.Vector3(0,0,-1));
+  cyl('pipe',V3(84,-25.9,0),V3(84,-25.9,3.8),.05,8);cyl('pipe',V3(64.3,-25.9,0),V3(64.3,-25.9,4.7),.05,8);
   {const shuttle=new THREE.Group();
-    const cork=new THREE.Mesh(new THREE.SphereGeometry(.42,24,12,0,Math.PI*2,0,Math.PI/2),M.white);cork.rotation.x=Math.PI;cork.castShadow=true;
-    const band_=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.12,24),M.red);band_.position.y=.02;
-    const skirt=new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(.36,.08),new THREE.Vector2(.5,.6),new THREE.Vector2(.8,1.5),new THREE.Vector2(1.02,2.1)],32),std({color:0xf7f7f3,roughness:.6,side:THREE.DoubleSide}));skirt.castShadow=true;
-    const rib=new THREE.Mesh(new THREE.TorusGeometry(.62,.025,6,32),M.dark);rib.rotation.x=Math.PI/2;rib.position.y=1.0;
-    shuttle.add(cork,band_,skirt,rib);shuttle.rotation.z=Math.PI/2;shuttle.position.copy(V3(66.6,-25.2,3.95));shuttle.rotation.y=.25;scene.add(shuttle);}
-  // Photovoltaik und Oberlichter
-  const skip=[-41,-57,-73,-89,-105];const pvList=[];
-  for(let v=-120.5;v<=-31;v+=2.35){const sk=skip.some(s=>Math.abs(v-s)<2);const segs=sk?[[64.5,70],[79,89.5]]:[[64.5,89.5]];for(const s of segs)pvList.push([s,v,7.25]);}
-  for(let v=-126.5;v<=-26;v+=2.35){pvList.push([[51,61.5],v,6.05]);}
-  for(const [[a,b],v,y] of pvList){const n=Math.round((b-a)/1.02);for(let i=0;i<n;i++)inst('pv',a+(i+.5)*(b-a)/n,v,y,1,.04,1.7,Math.PI/2*0,-.2);}
-  skip.forEach(v=>ridge(71,78,v-1.1,v+1.1,7.2,.8));
-  // Außenflächen
-  cap(offsetRing(ccw(HALL),-5),.02,'pav',[HG]);
-  blockers.push({r:ccw(HG),b:bbox(HG)});
+    const cork=new THREE.Mesh(new THREE.SphereGeometry(.42,24,12,0,Math.PI*2,0,Math.PI/2),M.white);cork.rotation.x=Math.PI;
+    const skirt=new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(.36,.06),new THREE.Vector2(.48,.5),new THREE.Vector2(.72,1.3),new THREE.Vector2(.92,1.9)],36),std({color:0xf7f7f3,roughness:.55,side:THREE.DoubleSide}));
+    const rib1=new THREE.Mesh(new THREE.TorusGeometry(.5,.02,6,36),M.dark);rib1.rotation.x=Math.PI/2;rib1.position.y=.55;
+    const rib2=rib1.clone();rib2.scale.setScalar(1.42);rib2.position.y=1.3;
+    shuttle.add(cork,skirt,rib1,rib2);shuttle.traverse(o=>{o.castShadow=true;});
+    shuttle.scale.setScalar(.85);shuttle.rotation.set(0,0,-Math.PI/2+.08);shuttle.position.copy(V3(78.6,-26.5,3.8+.4));scene.add(shuttle);}
+
+  /* Südwestseite (Promenade) und Südostseite: Glas mit bronzefarbenen geschlossenen Paneelen */
+  curtain([53.5,-26],[53.5,-126.2],0,4.7,{panel:(j)=>j>=6&&j%3===2});
+  curtain([53.5,-126.2],[90.6,-126.2],0,4.7,{panel:(j)=>j%3===1});
+  /* Nordostseite: geschlossener Sockel, Oberlichtfenster zwischen Holzstützen (nach Innenfotos) */
+  curtain([90.6,-126.2],[90.6,-26],0,2.0,{panel:()=>true,tr:[]});
+  curtain([90.6,-126.2],[90.6,-26],2.0,3.9,{sp:2.5,tr:[]});
+  curtain([90.6,-126.2],[90.6,-26],3.9,4.7,{panel:()=>true,tr:[]});
+  // Nebeneingang an der Promenade
+  box('board',51.8,-34.8,0,3.2,3.6,3.1,0,true);
+  quad('brassDoor',V3(50.18,-35.6,0),V3(50.18,-34.0,0),V3(50.18,-34.0,2.4),V3(50.18,-35.6,2.4),[[0,0],[1,0],[1,1],[0,1]],new THREE.Vector3(-1,0,0));
+
+  /* Innen: Foyer und Galerie auf Geländeniveau, Tribüne, 3 m tiefer Hallenboden, Holzbinder, weiße V-Stützen */
+  cap(HG,.03,'floorIn',[PIT]);cap(rect(61.3,-121,64.5,-31),.036,'gallery');
+  const PITc=ccw(PIT);band(PITc,PITc,-3,0,'panelWood',{inner:true});
+  quad('panelWood',V3(90.3,-121,0),V3(90.3,-31,0),V3(90.3,-31,2.0),V3(90.3,-121,2.0),[[-121,0],[-31,0],[-31,2],[-121,2]],new THREE.Vector3(-1,0,0));
+  {const L=90,Wd=25.8,c=cv(512,1786),g=c.getContext('2d'),sx=512/Wd,sy=1786/L;
+    g.fillStyle='#c9ccca';g.fillRect(0,0,512,1786);
+    for(let hh=0;hh<2;hh++){const oy=hh*45*sy;g.fillStyle='#d9c8a6';g.fillRect(4*sx,oy+10*sy,15*sx,25*sy);
+      const line=(col,x,y,w,h)=>{g.strokeStyle=col;g.lineWidth=3;g.strokeRect(x*sx,oy+y*sy,w*sx,h*sy);};
+      line('#1d1d1d',3,2.5,20,40);line('#c93a30',4,8,18,29);line('#2f5fbf',5,14,16,17);line('#2f9a4f',7,9,12,27);
+      g.strokeStyle='#1d1d1d';g.lineWidth=3;g.beginPath();g.arc(13*sx,oy+2.5*sy,6*sx,0,Math.PI);g.stroke();g.beginPath();g.arc(13*sx,oy+42.5*sy,6*sx,Math.PI,0);g.stroke();
+      g.beginPath();g.moveTo(3*sx,oy+22.5*sy);g.lineTo(23*sx,oy+22.5*sy);g.stroke();g.strokeStyle='#e0523f';g.beginPath();g.arc(13*sx,oy+22.5*sy,1.8*sx,0,7);g.stroke();}
+    const t=toTex(c);t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;M.court=std({map:t,roughness:.35});
+    const m=new THREE.Mesh(new THREE.PlaneGeometry(Wd,L),M.court);m.rotation.x=-Math.PI/2;m.position.copy(V3(77.4,-76,-3));m.receiveShadow=true;scene.add(m);}
+  for(let i=0;i<6;i++){const uu=68.1-(i+1)*.6;box('white',uu+.3,-76,-3,.6,86,(i+1)*.5);box('dark',uu+.59,-76,-3+(i+.5)*.5,.02,86,.5);}
+  quad('glassClear',V3(64.45,-121,0),V3(64.45,-31,0),V3(64.45,-31,1.0),V3(64.45,-121,1.0),[[0,0],[1,0],[1,1],[0,1]],new THREE.Vector3(1,0,0));
+  inst('steel',64.45,-76,1.0,.05,.05,90);
+  for(const v of[-117,-102,-87,-65,-50,-35]){cyl('white',V3(64.1,v,0),V3(64.1,v-2.3,4.65),.11,10);cyl('white',V3(64.1,v,0),V3(64.1,v+2.3,4.65),.11,10);}
+  for(const [v0,v1] of[[-125.6,-108.5],[-104,-88],[-84,-68],[-64,-48],[-44,-36.5]]){box('panelWood',58.3,(v0+v1)/2,0,5.8,v1-v0,3.3,0,true);}
+  for(const [a,b] of HALLS){const vc=(a+b)/2,hl=Math.abs(b-a)/2;
+    for(let v=Math.min(a,b)+1.25;v<Math.max(a,b)-1;v+=2.5){if(Math.abs(v-vc)<1.4)continue;const yt=5.45+1.2*(1-Math.abs(v-vc)/hl);
+      box('wood',77.4,v,yt-1.0,26.2,.22,1.0,0,true);inst('wood',90.1,v,.9+(yt-1)/2,.3,yt-1.0-.9+1,.24);if(Math.round(v)%5===0)box('stripLight',77.4,v+1.25,yt-.05,22,.1,.04);}
+    for(const v of[vc-15,vc,vc+15]){box('white',90.15,v,-.25,.05,1.8,1.05);inst('orange',89.75,v,.05,.46,.02,.46);}
+    box('dark',90.15,vc+7.5,.9,.06,2.4,.8);}
+  blockers.push({r:HGB,b:bbox(HGB)});
+}
+function buildHallGrounds(){
+  cap(HPLAZA,.02,'pav');cap(PROM,.02,'pav');cap(offsetRing(ccw(HALL),-3),.02,'pav',[HG]);
+  // Rasenfläche vor dem Foyer mit Sitzblock (wie auf dem Foto)
+  cap(rect(54.5,-21.3,66.5,-12.5),.035,'lawnTop');wall(ccw(rect(54.5,-21.3,66.5,-12.5)),0,.06,'curb');
+  box('benchStone',54.05,-16.9,0,.8,8.8,.47,0,true);
+  // Edelstahlpoller
+  for(let u=42.5;u<=99;u+=2.9){if(u>67.5&&u<72.5)continue;cyl('steel',V3(u,-9.2,0),V3(u,-9.2,1.0),.085,14);addGeom('steel',new THREE.CircleGeometry(.085,14).rotateX(-Math.PI/2).translate(u,1.0,9.2));}
+  box('steel',76.4,-17.6,.02,.8,.8,.03);
+  // Promenade: Rasenbeete mit Sitzkante und jungen Bäumen an Pfählen
+  for(const [v0,v1] of[[-43,-30],[-62,-49],[-80,-67],[-98,-85],[-116,-103]]){cap(rect(45.4,v0,49.2,v1),.035,'lawnTop');
+    box('benchStone',45.1,(v0+v1)/2,0,.6,v1-v0,.46,0,true);for(let v=v0+3.2;v<v1-1;v+=6.5)young.push([47.3,v]);}
+  for(const [u,v] of young){for(let k=0;k<3;k++){const a=k*2.094;cyl('planks',V3(u+Math.cos(a)*.55,v+Math.sin(a)*.55,0),V3(u+Math.cos(a)*.55,v+Math.sin(a)*.55,2.3),.04,6);}
+    for(let k=0;k<3;k++){const a=k*2.094,b=a+2.094;cyl('planks',V3(u+Math.cos(a)*.55,v+Math.sin(a)*.55,1.9),V3(u+Math.cos(b)*.55,v+Math.sin(b)*.55,1.9),.025,5);}}
+  // Ansaugtürme des Erdwärmetauschers
+  for(const [u,v,k] of[[46.9,-45.3,'brass'],[46.9,-47.7,'brass'],[94.8,-22.4,'steel'],[97.2,-22.4,'steel']]){
+    cyl(k,V3(u,v,0),V3(u,v,2.7),.45,28);addGeom('dark',new THREE.CylinderGeometry(.46,.46,.06,28).translate(u,2.72,-v));
+    for(let y=2.1;y<2.6;y+=.12)addGeom('dark',new THREE.CylinderGeometry(.455,.455,.03,28).translate(u,y,-v));}
+  blockers.push({r:rect(50.2,-36.6,53.4,-33),b:[50.2,-36.6,53.4,-33]});
+  blockers.push({r:rect(53.6,-21.3,54.5,-12.5),b:[53.6,-21.3,54.5,-12.5]});
 }
 
 function buildOthers(){
@@ -901,13 +1020,15 @@ function buildLamps(){
       for(let t=acc;t<L;t+=30){const u=a[0]+e[0]*t-e[1]*(r.w/2+.6),v=a[1]+e[1]*t+e[0]*(r.w/2+.6);if(Math.hypot(u-20,v+20)>210)continue;
         if(blockers.some(o=>u>o.b[0]-1&&u<o.b[2]+1&&v>o.b[1]-1&&v<o.b[3]+1&&pip(u,v,o.r)))continue;lampPos.push([u,v,Math.atan2(e[1],e[0])-Math.PI/2]);}
       acc=((acc-L)%30+30)%30;}}
-  [[30,58],[30,33],[40,-10],[40,-30],[5,-44],[58,-20],[84,-20]].forEach(([u,v])=>lampPos.push([u,v,0]));
-  const n=lampPos.length;
+  [[30,58],[30,33],[40,-10],[40,-30],[5,-44]].forEach(([u,v])=>lampPos.push([u,v,0]));
+  for(const [u,v] of[[52.8,-21.8],[70.5,-13.8],[88,-15.5],[44.3,-36],[44.3,-56],[44.3,-74],[44.3,-92],[44.3,-110]]){lampPos.push([u,v,0,1]);
+    cyl('lamp',V3(u,v,0),V3(u,v,6.3),.07,10);addGeom('lampHead',new THREE.CylinderGeometry(.4,.3,.1,28).translate(u,6.35,-v));addGeom('lamp',new THREE.CylinderGeometry(.42,.42,.06,28).translate(u,6.43,-v));}
+  const poleList=lampPos.filter(l=>!l[3]);const n=poleList.length;
   const pole=new THREE.InstancedMesh(new THREE.CylinderGeometry(.06,.09,5,8).translate(0,2.5,0),M.lamp,n);
   const head=new THREE.InstancedMesh(new THREE.BoxGeometry(.6,.12,.28).translate(.4,5.05,0),M.lampHead,n);
-  const pools=new THREE.InstancedMesh(new THREE.PlaneGeometry(16,16).rotateX(-Math.PI/2).translate(0,.09,0),new THREE.MeshBasicMaterial({map:TX.pool,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0,fog:false}),n);
-  lampPos.forEach(([u,v,a],i)=>{_q.setFromEuler(_e.set(0,a,0));_m4.compose(V3(u,v,0),_q,_s.set(1,1,1));pole.setMatrixAt(i,_m4);head.setMatrixAt(i,_m4);
-    _m4.compose(V3(u+Math.cos(a)*1.2,v+Math.sin(a)*1.2,0),_q,_s.set(1,1,1));pools.setMatrixAt(i,_m4);});
+  const pools=new THREE.InstancedMesh(new THREE.PlaneGeometry(16,16).rotateX(-Math.PI/2).translate(0,.09,0),new THREE.MeshBasicMaterial({map:TX.pool,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,opacity:0,fog:false}),lampPos.length);
+  poleList.forEach(([u,v,a],i)=>{_q.setFromEuler(_e.set(0,a,0));_m4.compose(V3(u,v,0),_q,_s.set(1,1,1));pole.setMatrixAt(i,_m4);head.setMatrixAt(i,_m4);});
+  lampPos.forEach(([u,v,a,d],i)=>{_q.setFromEuler(_e.set(0,a,0));_m4.compose(V3(u+(d?0:Math.cos(a)*1.2),v+(d?0:Math.sin(a)*1.2),0),_q,_s.set(1,1,1));pools.setMatrixAt(i,_m4);});
   pole.castShadow=head.castShadow=true;pools.userData.noAO=true;pools.renderOrder=2;scene.add(pole,head,pools);M.pools=pools.material;
 }
 
@@ -943,7 +1064,7 @@ const treeGroup=new THREE.Group(),underGroup=new THREE.Group();
 function planVegetation(){
   const noTree=[];const sparse=[];
   const addNo=(r,buf=0)=>{const rr_=buf?offsetRing(ccw(r),-buf):r;noTree.push({r:rr_,b:bbox(rr_)});};
-  addNo(P0o,5);addNo(HALL,6);addNo(HOF);addNo(VORPLATZ);
+  addNo(P0o,5);addNo(HALL,6);addNo(HOF);addNo(VORPLATZ);addNo(HPLAZA);addNo(PROM);
   for(const b of GEO.bld)addNo(b.r,2.5);
   for(const p of GEO.park)addNo(p.r,1);
   for(const p of GEO.pitch)addNo(p.r,2);
@@ -962,6 +1083,10 @@ function planVegetation(){
     const pine=!sp&&R()<.55;trees.push({u,v,pine,h:sp?rr(7,11):(pine?rr(17,26):rr(12,20))});
   }
   [[30,40],[16,-41.5],[36,-30],[40,-40],[-8,-40]].forEach(([u,v])=>trees.push({u,v,pine:false,h:rr(8,10),yard:true}));
+  // große Bäume in den Pausenhof-Beeten (Schulfoto), junge Bäume an der Sporthalle
+  [[23,.7],[29,.5],[22.5,-11],[28.5,-10.8],[37.8,-1.4]].forEach(([u,v])=>trees.push({u,v,pine:false,h:rr(10,13),yard:true}));
+  for(const [u,v] of young)trees.push({u,v,pine:false,h:rr(5.5,6.5),yard:true,young:true});
+  for(const bd of HOFBEDS)for(let k=0;k<7;k++)bushes.push({u:rr(bd[0]+.8,bd[2]-.8),v:rr(bd[1]+.6,bd[3]-.6),s:rr(.6,1.1)});
   for(const row of GEO.rows)for(let i=0;i<row.length-1;i++){const a=row[i],b=row[i+1];const L=Math.hypot(b[0]-a[0],b[1]-a[1]);
     for(let t=0;t<L;t+=7)trees.push({u:a[0]+(b[0]-a[0])*t/L,v:a[1]+(b[1]-a[1])*t/L,pine:false,h:rr(9,12)});}
   // Sträucher an den Fassaden
@@ -973,7 +1098,7 @@ function planVegetation(){
   for(let i=0;i<9000;i++){const a=R()*6.28,d=Math.sqrt(R())*190;const u=15+Math.cos(a)*d,v=-10+Math.sin(a)*d;
     if(inList(u,v,noTree)||nearRoad(u,v,.8)||inList(u,v,sparse))continue;
     const k=R();if(k<.16)bushes.push({u,v,s:rr(.8,2.0),under:true});else if(k<.7)ferns.push({u,v,s:rr(.6,1.2)});else grasses.push({u,v,s:rr(.4,.8)});}
-  for(let i=0;i<1600;i++){const u=rr(-80,120),v=rr(-60,90);if(!inList(u,v,noTree)||inList(u,v,[{r:HOF,b:bbox(HOF)},{r:VORPLATZ,b:bbox(VORPLATZ)},{r:schoolApron,b:bbox(schoolApron)},{r:P0o,b:bbox(P0o)}]))continue;
+  for(let i=0;i<1600;i++){const u=rr(-80,120),v=rr(-60,90);if(!inList(u,v,noTree)||inList(u,v,[{r:HOF,b:bbox(HOF)},{r:VORPLATZ,b:bbox(VORPLATZ)},{r:schoolApron,b:bbox(schoolApron)},{r:P0o,b:bbox(P0o)},{r:HPLAZA,b:bbox(HPLAZA)},{r:PROM,b:bbox(PROM)},{r:offsetRing(ccw(HALL),-3.5),b:bbox(offsetRing(ccw(HALL),-3.5))}])||GEO.park.some(p=>pip(u,v,p.r)))continue;
     if(GEO.areas.some(a=>a.k==='garden'&&pip(u,v,a.r))||nearRoad(u,v,1))continue;if(u>45&&u<100&&v<-20)continue;grasses.push({u,v,s:rr(.35,.6)});}
 }
 function buildVegetation(){
@@ -990,7 +1115,7 @@ function buildVegetation(){
   const cA=mk(crownA,leafM,lA.length,leafD),cB=mk(crownB,leafM,lB.length,leafD),kI=mk(pineCrown,needM,pine.length*3,needD);
   const col=new THREE.Color();
   leaf.forEach((t,i)=>{const tw=t.h*.011+.06;_m4.compose(V3(t.u,t.v,0),_q.identity(),_s.set(tw,t.h*.6,tw));tI.setMatrixAt(i,_m4);});
-  const setCrown=(im,list)=>list.forEach((t,i)=>{const r=t.h*rr(.3,.38);_q.setFromEuler(_e.set(0,R()*6.28,0));_m4.compose(V3(t.u,t.v,t.h*.64),_q,_s.set(r,r*.9,r*rr(.9,1.1)));im.setMatrixAt(i,_m4);
+  const setCrown=(im,list)=>list.forEach((t,i)=>{const r=t.young?t.h*rr(.24,.28):t.h*rr(.3,.38);_q.setFromEuler(_e.set(0,R()*6.28,0));_m4.compose(V3(t.u,t.v,t.h*.64),_q,_s.set(r,r*.9,r*rr(.9,1.1)));im.setMatrixAt(i,_m4);
     if(R()<autumn)col.setHSL(rr(.08,.14),rr(.55,.75),rr(.45,.6));else col.setHSL(rr(.22,.3),rr(.25,.5),rr(.72,.95));if(t.yard)col.setHSL(.25,.45,.9);im.setColorAt(i,col);});
   setCrown(cA,lA);setCrown(cB,lB);
   pine.forEach((t,i)=>{_m4.compose(V3(t.u,t.v,0),_q.identity(),_s.set(.2+t.h*.004,t.h*.94,.2+t.h*.004));pI.setMatrixAt(i,_m4);
@@ -1062,7 +1187,7 @@ function setTime(hours){
   sun.intensity=3.4*THREE.MathUtils.smoothstep(eD,-1,8);sun.color.setRGB(1,.7+.28*dayF,.5+.42*dayF);
   hemi.intensity=.06+.55*dayF;hemi.color.setRGB(.55+.3*dayF,.6+.3*dayF,.75+.2*dayF);hemi.groundColor.setRGB(.2+.15*dayF,.2+.14*dayF,.14+.08*dayF);
   scene.environmentIntensity=.15+.85*dayF;
-  M.glass.emissiveIntensity=nightF*.55;M.door.emissiveIntensity=nightF*.5;M.lampHead.emissiveIntensity=nightF*2.5;M.stripLight.emissiveIntensity=.3+nightF*1.2;
+  M.glass.emissiveIntensity=nightF*.55;M.hdoor.emissiveIntensity=nightF*.6;M.door.emissiveIntensity=nightF*.5;M.lampHead.emissiveIntensity=nightF*2.5;M.stripLight.emissiveIntensity=.3+nightF*1.2;
   if(M.pools)M.pools.opacity=nightF*.38;
   renderer.toneMappingExposure=(.42+.14*dayF+nightF*.12);
   if(bloom){bloom.strength=.1+nightF*.28;bloom.threshold=.9-nightF*.1;}
@@ -1102,15 +1227,15 @@ const controls=new OrbitControls(camera,renderer.domElement);
 async function build(){
   await tick('Texturen werden gemalt …');buildTextures();buildMaterials();
   await tick('Schulgebäude …');buildSchool();buildSchoolGrounds();
-  await tick('Sporthalle …');buildHall();
+  await tick('Sporthalle …');buildHall();buildHallGrounds();
   await tick('Umgebung …');
   buildOthers();buildLamps();
   await tick('Wald wird gepflanzt …');planVegetation();buildVegetation();
   for(const t of trees){const k=Math.floor(t.u/4)+','+Math.floor(t.v/4);if(!trunkGrid.has(k))trunkGrid.set(k,[]);trunkGrid.get(k).push(t);}
   await tick('Licht und Himmel …');
   flushInst();
-  const noAOkeys=new Set(['glassClear','skylight','uglass']);
-  const castKeys=new Set(['corr','concrete','roof','coping','apt','house','planks','plaster','tile','fascia','wall','metal','door','flat','soil','sicht','wood','hvac','pipe','curb','cYel','cGrn','cTur','cLim','frameY','panelWood','white','stripLight','stele','logo','sill','soffit','green','mullion','dark']);
+  const noAOkeys=new Set(['glassClear','skylight','uglass','glassHall']);
+  const castKeys=new Set(['corr','concrete','roof','coping','apt','house','planks','plaster','tile','fascia','wall','metal','door','flat','soil','sicht','wood','hvac','pipe','curb','cYel','cGrn','cTur','cLim','frameY','panelWood','white','stripLight','stele','logo','sill','soffit','green','mullion','dark','board','fasciaH','bronze','benchStone','stripes','steel','brass','soffitH','brassDoor','hdoor']);
   for(const [k,s] of Object.entries(B)){
     const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(s.p,3));
     g.setAttribute('normal',new THREE.Float32BufferAttribute(s.n,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(s.u,2));
@@ -1138,8 +1263,10 @@ const PLACES=[
   {n:'Luftbild',s:'Schulzentrum von Südosten',m:'orbit',cam:[118,-108,95],tgt:[12,4,2]},
   {n:'Haupteingang',s:'Vorplatz mit gelben Türen',m:'walk',at:[37,34.5],look:[20,39,2.2]},
   {n:'Pausenhof',s:'Südostseite, Tischtennis',m:'walk',at:[38,-38],look:[5,-12,3]},
-  {n:'Sporthalle',s:'Foyer mit Federball-Skulptur',m:'walk',at:[70,-8],look:[70,-24,3.5]},
-  {n:'Blick in die Halle',s:'Durch die Glasfassade, 3 m tief',m:'walk',at:[95.5,-70],look:[80,-72,-2.2]},
+  {n:'Sporthalle',s:'Vorplatz wie auf dem Foto',m:'walk',at:[72,2],look:[65,-26,2.6]},
+  {n:'Promenade',s:'Längsseite unter dem Vordach',m:'walk',at:[44.5,-27],look:[47,-95,2.2]},
+  {n:'Blick in die Halle',s:'Durch die Glasfassade, 3 m tief',m:'walk',at:[50.5,-68],look:[72,-70,-2.2]},
+  {n:'Pausenhof-Eingang',s:'Gelber Windfang, bunte Beete',m:'walk',at:[40,-5],look:[16,-4.3,2]},
   {n:'Schulgarten',s:'Hochbeete im Westen',m:'walk',at:[-37,-13],look:[-60,9,1]},
   {n:'Waldweg',s:'Blick aus dem Hardtwald',m:'walk',at:[-60.3,78],look:[-15,30,6]},
   {n:'Dachaufsicht',s:'Stufenbau von oben',m:'orbit',cam:[8,-6,150],tgt:[8,6,0]},
@@ -1214,7 +1341,7 @@ const LABELS=[
   {t:'Haupteingang',u:22.5,v:39,y:5.2},
   {t:'Eingang Pausenhof',u:17,v:-4.3,y:4.4},
   {t:'Pausenhof',u:26,v:-36,y:3},
-  {t:'Sporthalle Oberreut',u:70.8,v:-76,y:10},
+  {t:'Sporthalle Oberreut',u:70.8,v:-76,y:8.5},
   {t:'Schulgarten',u:-58,v:10,y:3},
   {t:'Parkplatz',u:39,v:62,y:3},
   {t:'Fahrräder',u:89,v:26,y:4},
@@ -1250,7 +1377,7 @@ function drawMapBase(){
   for(const r of GEO.roads){g.strokeStyle=r.s==='dirt'?'#b59f75':r.s==='pav'?'#b9b6ae':'#d9d7d0';g.lineWidth=Math.max(1.2,r.w*296/260);g.lineCap='round';g.lineJoin='round';
     g.beginPath();r.p.forEach((p,i)=>{const [x,y]=toMap(...p);i?g.lineTo(x,y):g.moveTo(x,y);});g.stroke();}
   for(const b of GEO.bld)poly(b.r,'#cfc9ba');
-  poly(HALL,'#6e7a52','#34383b');poly(PIT,'#89929a');
+  poly(HPLAZA,'#a9a79f');poly(PROM,'#a9a79f');poly(HALL,'#6e7a52','#34383b');poly(PIT,'#89929a');
   poly(P0o,'#e2b30b','#6d5a0a');poly(CROSS,'#f0d25c');
 }
 drawMapBase();
@@ -1342,7 +1469,7 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 build().then(()=>requestAnimationFrame(loop)).catch(err=>{loadMsg.textContent='Fehler beim Aufbau: '+err.message;console.error(err);});
-window.__ebs={scene,camera,setMode,PLACES,flyToPlace,setTime,applyQuality};
+window.__ebs={scene,camera,controls,setMode,PLACES,flyToPlace,setTime,applyQuality};
 
 </script>
 </body>

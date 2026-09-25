@@ -23,8 +23,14 @@ Kies, Sichtbeton, Waldboden und Rinde; echte gelbe Fensterrahmen; Bäume aus Bla
 mit Windbewegung, Farne und Sträucher; physikalischer Himmel mit Wolken und Sternen,
 Umgebungsspiegelungen, Umgebungsverdeckung (GTAO) und Leuchteffekt bei Nacht.
 Drei Grafikstufen (Hoch, Mittel, Einfach); das Modell schaltet bei zu niedriger
-Bildrate selbst herunter. Die Sporthalle Oberreut ist nach Fotos und Wettbewerbsplänen
-der Stadt Karlsruhe gebaut (3 m abgesenkte Halle, V-Stützen, Federball-Skulptur).
+Bildrate selbst herunter.
+
+Die Sporthalle Oberreut ist nach Fotos des fertigen Baus nachgebildet (Karl Braun
+Innenausbau, BMP, Stadt Karlsruhe, eigenes Foto vom Vorplatz): Flachdach mit dunkler
+Blende auf +5,80 m, weite Auskragung zur Promenade, heller Eingangsbaukörper mit
+Brettschalung und Federball-Skulptur, Glasfassaden mit Bronzepaneelen, 3 m abgesenkte
+Halle mit Holzbindern und weißen V-Stützen innen. Der Pausenhof hat nach dem Schulfoto
+den gelben Windfang und bunt gestreifte Beeteinfassungen.
 
 - Grundrisse, Wege, Parkplätze, Zäune: OpenStreetMap (ODbL), in einen an der
   Gebäudeachse ausgerichteten Meter-Rahmen umgerechnet und in die Datei eingebettet
