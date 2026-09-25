@@ -9,6 +9,7 @@ Dieses Repository hostet über GitHub Pages mehrere kleine Web-Projekte.
 | `/lehrerassistent-v2/` | **LehrerAssistent 2 – die aktuelle App** (installierbare PWA) |
 | `/lehrerassistent/` | LehrerAssistent – erste Fassung |
 | `src/`, `index.html` | Quellcode der React-App „Wochen Champion" (Vite) |
+| `haus3d/` | „Unser Haus“: begehbares 3D-Modell von Haus, Hof und Garten (nicht über Pages veröffentlicht) |
 
 ## LehrerAssistent 2 (Ordner `lehrerassistent-v2/`)
 
@@ -71,3 +72,24 @@ python3 -m http.server 8000
 - `sw.js`, `manifest.webmanifest` – Offline-Betrieb und Installation
 
 Die Veröffentlichung erledigt `.github/workflows/deploy-pages.yml`.
+
+## Unser Haus in 3D (Ordner `haus3d/`)
+
+Begehbares 3D-Modell (three.js) von Wohnhaus, Anbau, Schuppen, Garage, Überdachungen,
+Hof, Terrasse und Garten, eingebettet in die Nachbarbebauung. Läuft im Browser auf
+iPhone und Mac: links ziehen zum Gehen, rechts wischen zum Umschauen, auf dem Lageplan
+tippen zum Hinspringen, Regler für den Sonnenstand.
+
+```bash
+cd haus3d
+python3 -m http.server 8000
+# danach http://localhost:8000 öffnen
+```
+
+- `app.js` – Szene, Gebäude, Garten, Steuerung
+- `data/umgebung.json` – Nachbargebäude (LoD2), Bäume (nDOM1), Grundstücksgrenze, in lokalen Metern ohne Georeferenz
+- `data/luftbild.jpg` – Ausschnitt DOP20 (Befliegung 18.08.2023), gedreht auf die Hausachse
+
+Maße und Dachformen stammen aus dem 3D-Gebäudemodell LoD2 und ALKIS des LGL
+Baden-Württemberg, Fassaden und Garten sind nach Fotos nachgebaut. Geodaten © LGL,
+www.lgl-bw.de, Datenlizenz Deutschland – Namensnennung – 2.0.

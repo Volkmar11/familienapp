@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Unser Haus in 3D</title>
+<style>
+:root{
+  --paper:#f4f3ef; --panel:rgba(248,247,243,.88); --panel-solid:#fbfaf7;
+  --ink:#2a2522; --muted:#6c645d; --line:rgba(42,37,34,.16);
+  --tile:#a3462c; --tile-ink:#ffffff; --stone:#d8cfb6; --ok:#4f7a3a;
+  --shadow:0 10px 30px rgba(30,22,18,.20);
+  --serif:ui-serif,"New York","Iowan Old Style",Georgia,serif;
+  --sans:-apple-system,BlinkMacSystemFont,system-ui,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#1c1917; --panel:rgba(30,27,25,.86); --panel-solid:#262220;
+    --ink:#efe9e3; --muted:#b1a79e; --line:rgba(239,233,227,.16);
+    --tile:#e07a5a; --tile-ink:#1c1917; --stone:#6d634f; --ok:#9cc27f;
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#1c1917; --panel:rgba(30,27,25,.86); --panel-solid:#262220;
+  --ink:#efe9e3; --muted:#b1a79e; --line:rgba(239,233,227,.16);
+  --tile:#e07a5a; --tile-ink:#1c1917; --stone:#6d634f; --ok:#9cc27f;
+  --shadow:0 10px 30px rgba(0,0,0,.45);
+}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--paper);color:var(--ink);font:14px/1.4 var(--sans);-webkit-text-size-adjust:100%;overscroll-behavior:none}
+#scene{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none;background:#b9cfe6}
+.ui{position:fixed;z-index:5}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--tile);outline-offset:2px}
+
+/* Plankopf */
+.plankopf{top:calc(env(safe-area-inset-top,0px) + 12px);left:calc(env(safe-area-inset-left,0px) + 12px);width:min(290px,calc(100vw - 150px));background:var(--panel);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:6px;overflow:hidden}
+.pk-head{display:flex;align-items:stretch;border:0;background:none;width:100%;padding:0;cursor:pointer;text-align:left}
+.pk-title{flex:1;padding:9px 12px 8px}
+.pk-title strong{display:block;font:600 19px/1.1 var(--serif);letter-spacing:.2px}
+.pk-title span{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.pk-scale{border-left:1px solid var(--line);padding:9px 10px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:54px}
+.pk-scale b{font:600 12px var(--mono)}
+.pk-scale i{font:normal 9.5px var(--sans);letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.pk-body{border-top:1px solid var(--line)}
+.pk-grid{display:grid;grid-template-columns:auto 1fr;margin:0}
+.pk-grid dt,.pk-grid dd{margin:0;padding:5px 12px;border-bottom:1px solid var(--line)}
+.pk-grid dt{font-size:10px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);border-right:1px solid var(--line);padding-top:7px}
+.pk-grid dd{font:12.5px var(--mono);font-variant-numeric:tabular-nums}
+.pk-foot{display:flex;gap:8px;padding:8px 10px 10px}
+.btn{border:1px solid var(--line);background:var(--panel-solid);border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer}
+.btn:hover{border-color:var(--tile)}
+.btn.round{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex:0 0 auto}
+.plankopf.collapsed .pk-body{display:none}
+
+/* Minikarte */
+.minimap{top:calc(env(safe-area-inset-top,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:6px;padding:6px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.minimap canvas{display:block;width:104px;height:216px;cursor:crosshair;touch-action:none}
+.minimap small{display:block;text-align:center;font-size:9.5px;letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-top:3px}
+
+/* Dock */
+.dock{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(640px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:14px;-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);padding:8px;display:flex;flex-direction:column;gap:8px;box-sizing:border-box}
+.views{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.views::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;border:1px solid var(--line);background:var(--panel-solid);border-radius:999px;padding:7px 13px;font-size:13px;cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--tile);color:var(--tile-ink);border-color:transparent}
+.row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.clock{display:flex;align-items:center;gap:8px;flex:1 1 220px;min-width:0}
+.clock svg{flex:0 0 auto}
+.clock output{font:600 13px var(--mono);font-variant-numeric:tabular-nums;min-width:44px}
+.clock input{flex:1;min-width:80px;accent-color:var(--tile)}
+.toggle{display:flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel-solid);border-radius:999px;padding:5px 11px 5px 7px;font-size:12.5px;cursor:pointer}
+.toggle .dot{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--muted)}
+.toggle[aria-pressed="true"] .dot{background:var(--tile);border-color:var(--tile)}
+
+/* Joystick */
+.stick{position:fixed;z-index:6;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:1.5px solid rgba(255,255,255,.75);background:rgba(20,16,14,.18);pointer-events:none;box-shadow:0 2px 14px rgba(0,0,0,.2)}
+.stick i{position:absolute;left:50%;top:50%;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;background:rgba(255,255,255,.88);box-shadow:0 2px 8px rgba(0,0,0,.25)}
+
+.hint{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 132px);background:rgba(22,18,16,.72);color:#fff;border-radius:999px;padding:8px 14px;font-size:13px;max-width:calc(100vw - 48px);box-sizing:border-box;text-align:center;pointer-events:none;transition:opacity .6s}
+.hint.off{opacity:0}
+.credit{right:calc(env(safe-area-inset-right,0px) + 8px);bottom:calc(env(safe-area-inset-bottom,0px) + 2px);font-size:9.5px;color:rgba(255,255,255,.92);text-shadow:0 1px 2px rgba(0,0,0,.6);pointer-events:none}
+
+/* Info */
+.sheet{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(18,14,12,.45);padding:16px;box-sizing:border-box}
+.sheet-card{background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:10px;max-width:560px;width:100%;max-height:calc(100% - 20px);overflow:auto;box-shadow:var(--shadow);padding:18px 20px 16px;box-sizing:border-box}
+.sheet-card h2{font:600 22px/1.15 var(--serif);margin:0 0 4px;text-wrap:balance}
+.sheet-card h3{font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+.sheet-card p,.sheet-card li{max-width:62ch}
+.sheet-card ul{margin:0;padding-left:18px;display:grid;gap:5px}
+.sheet-card a{color:var(--tile)}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:start}
+.pill{font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;border-radius:999px;padding:2px 8px;white-space:nowrap;border:1px solid var(--line)}
+.pill.m{background:color-mix(in srgb,var(--ok) 18%,transparent);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.pill.f{background:color-mix(in srgb,var(--tile) 16%,transparent);border-color:color-mix(in srgb,var(--tile) 45%,transparent)}
+.pill.a{background:color-mix(in srgb,var(--muted) 16%,transparent)}
+.sheet-close{float:right}
+
+.loading{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:var(--paper);color:var(--ink);padding:24px;text-align:center}
+.loading strong{font:600 24px var(--serif)}
+.bar{width:min(260px,70vw);height:3px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--tile);transition:width .3s}
+
+@media (max-width:560px){
+  .plankopf{width:calc(100vw - 150px)}
+  .pk-title strong{font-size:17px}
+  .dock{border-radius:12px;padding:7px}
+  .chip{padding:7px 9px;font-size:12.5px}
+  .views{gap:5px}
+  .clock{flex-basis:170px}
+  .minimap canvas{width:88px;height:183px}
+}
+@media (prefers-reduced-motion:reduce){ .hint,.bar i{transition:none} }
+</style>
+</head>
+<body>
+<canvas id="scene" tabindex="0" aria-label="Begehbares 3D-Modell von Haus, Hof und Garten"></canvas>
+
+<section class="ui plankopf" id="plankopf" aria-label="Plankopf">
+  <button class="pk-head" id="pkToggle" aria-expanded="true" aria-controls="pkBody">
+    <div class="pk-title"><strong>Unser Haus</strong><span>Haus · Hof · Garten, begehbar</span></div>
+    <div class="pk-scale"><b>1 : 1</b><i>3D</i></div>
+  </button>
+  <div class="pk-body" id="pkBody">
+    <dl class="pk-grid">
+      <dt>Grundstück</dt><dd>601 m² · 47 m tief</dd>
+      <dt>Wohnhaus</dt><dd>8,94 × 9,21 m</dd>
+      <dt>Traufe</dt><dd>5,23 m</dd>
+      <dt>First</dt><dd>9,18 m · 41,5°</dd>
+      <dt>Luftbild</dt><dd>18.08.2023</dd>
+    </dl>
+    <div class="pk-foot"><button class="btn" id="infoBtn">Quellen &amp; Genauigkeit</button></div>
+  </div>
+</section>
+
+<section class="ui minimap" aria-label="Lageplan">
+  <canvas id="minimap" width="208" height="432" aria-label="Lageplan, antippen zum Hinspringen"></canvas>
+  <small>Lageplan · tippen</small>
+</section>
+
+<div class="ui hint" id="hint">Links ziehen: gehen · rechts wischen: umschauen</div>
+
+<nav class="ui dock" aria-label="Steuerung">
+  <div class="views" role="group" aria-label="Standorte">
+    <button class="chip" data-view="strasse" aria-pressed="false">Straße</button>
+    <button class="chip" data-view="einfahrt" aria-pressed="false">Einfahrt</button>
+    <button class="chip" data-view="hof" aria-pressed="false">Hof</button>
+    <button class="chip" data-view="terrasse" aria-pressed="false">Terrasse</button>
+    <button class="chip" data-view="garten" aria-pressed="false">Garten</button>
+    <button class="chip" data-view="oben" aria-pressed="false">Von oben</button>
+  </div>
+  <div class="row2">
+    <label class="clock" for="time">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      <output id="timeOut">16:00</output>
+      <input id="time" type="range" min="390" max="1230" step="5" value="960" aria-label="Uhrzeit, Sonnenstand">
+    </label>
+    <button class="toggle" id="kidBtn" aria-pressed="false"><span class="dot"></span>Kinderblick</button>
+    <button class="btn round" id="helpBtn" aria-label="Hilfe: Steuerung und Quellen">?</button>
+  </div>
+</nav>
+
+<div class="stick" id="stick" hidden><i></i></div>
+<div class="ui credit">Geodaten © LGL-BW, dl-de/by-2-0 · © OpenStreetMap</div>
+
+<div class="sheet" id="info" hidden>
+  <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="infoTitle">
+    <button class="btn sheet-close" id="infoClose">Schließen</button>
+    <h2 id="infoTitle">Woher das Modell stammt</h2>
+    <p>Grundriss, Höhen und Dachform kommen aus amtlichen Geodaten des Landes Baden-Württemberg. Fassaden, Fenster, Hof und Garten sind nach deinen Fotos nachgebaut.</p>
+    <h3>Genauigkeit</h3>
+    <div class="legend">
+      <span class="pill m">gemessen</span><span>Grundrisse aller Gebäude, Grundstücksgrenze, Trauf- und Firsthöhen, Dachformen, Lage von Garage, Schuppen und Überdachungen, Baumhöhen der Umgebung, Solarmodule (Luftbild 2023)</span>
+      <span class="pill f">nach Foto</span><span>Fenster der Straßenseite und der Rückseite, Balkon, Hof mit Hochbeeten, Terrasse, Kirschlorbeer, Spielbereich, Beete, Trampolin, Wohnwagen, Hoftor</span>
+      <span class="pill a">angenommen</span><span>Fenster und Eingang an der Seitenwand zur Einfahrt, Garagentor, Kamin, Dachüberstände. Innenräume sind nicht enthalten, dafür gibt es keine öffentlichen Daten.</span>
+    </div>
+    <h3>Steuerung</h3>
+    <ul>
+      <li><b>iPhone:</b> links mit dem Daumen ziehen zum Gehen, rechts wischen zum Umschauen. Auf dem Lageplan tippen, um dorthin zu springen.</li>
+      <li><b>Mac:</b> W A S D oder Pfeiltasten zum Gehen, Umschalt zum Laufen, Maus ziehen zum Umschauen.</li>
+      <li><b>Von oben:</b> ein Finger dreht, zwei Finger zoomen und verschieben.</li>
+      <li>Der Regler stellt die Uhrzeit ein. Schatten und Sonnenstand stimmen für den heutigen Tag.</li>
+    </ul>
+    <h3>Quellen</h3>
+    <ul>
+      <li>3D-Gebäudemodell LoD2, LGL Baden-Württemberg, Grundrisse Stand 01.04.2025: <a href="https://www.lgl-bw.de/Produkte/3D-Produkte/3D-Gebaeudemodelle/LoD2/" target="_blank" rel="noopener">lgl-bw.de</a></li>
+      <li>Digitales Orthophoto DOP20, Befliegung 18.08.2023, und Oberflächenmodell nDOM1: <a href="https://opengeodata.lgl-bw.de/" target="_blank" rel="noopener">Open GeoData Portal</a></li>
+      <li>ALKIS Flurstücke und Gebäude über die OGC API Features des LGL: <a href="https://ogcapi.lgl-bw.de/beta/pygeoapi/" target="_blank" rel="noopener">ogcapi.lgl-bw.de</a></li>
+      <li>Adresssuche: <a href="https://nominatim.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap Nominatim</a>, Daten © OpenStreetMap-Mitwirkende, ODbL</li>
+      <li>Lizenz der Geodaten: <a href="https://www.govdata.de/dl-de/by-2-0" target="_blank" rel="noopener">Datenlizenz Deutschland – Namensnennung – 2.0</a>, Datenquelle: LGL, www.lgl-bw.de</li>
+    </ul>
+  </div>
+</div>
+
+<div class="loading" id="loading">
+  <strong>Unser Haus</strong>
+  <span id="loadmsg">Lade Luftbild und Gebäudemodell …</span>
+  <div class="bar"><i id="loadbar"></i></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
