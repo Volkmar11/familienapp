@@ -18,6 +18,14 @@ Zwei Ansichten: **Überblick** (drehen, zoomen) und **Rundgang** in Augenhöhe
 (WASD/Maus am Rechner, Steuerknüppel und Wischen am iPhone), dazu Lageplan zum
 Hinspringen, Orte-Menü und Tageszeit mit Sonnenstand für Karlsruhe.
 
+Grafik: prozedurale Texturen mit Relief (Normal Maps) für Trapezblech, Fischgrätpflaster,
+Kies, Sichtbeton, Waldboden und Rinde; echte gelbe Fensterrahmen; Bäume aus Blattkarten
+mit Windbewegung, Farne und Sträucher; physikalischer Himmel mit Wolken und Sternen,
+Umgebungsspiegelungen, Umgebungsverdeckung (GTAO) und Leuchteffekt bei Nacht.
+Drei Grafikstufen (Hoch, Mittel, Einfach); das Modell schaltet bei zu niedriger
+Bildrate selbst herunter. Die Sporthalle Oberreut ist nach Fotos und Wettbewerbsplänen
+der Stadt Karlsruhe gebaut (3 m abgesenkte Halle, V-Stützen, Federball-Skulptur).
+
 - Grundrisse, Wege, Parkplätze, Zäune: OpenStreetMap (ODbL), in einen an der
   Gebäudeachse ausgerichteten Meter-Rahmen umgerechnet und in die Datei eingebettet
 - Fassade nach dem Außenfoto auf ebs-karlsruhe.de, Geschosshöhen aus dem Luftbild geschätzt
