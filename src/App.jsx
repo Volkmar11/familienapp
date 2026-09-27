@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseLegacy as supabase } from "./lib/supabaseLegacy.js";
 import { toDateKey, addDays, weekdayOfKey, weekStartKey, monthStartKey, normalizeWeekKey } from "./lib/dateUtils.js";
 
-// ─── SUPABASE ───
-const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
+// ─── SUPABASE (LEGACY: public.app_state) ───
 const ROW_ID = "family-main";
 // Speichern ist erst erlaubt, wenn der erste Ladevorgang sicher abgeschlossen ist
 // (Datensatz geladen oder nachweislich nicht vorhanden). Nach einem Ladefehler
