@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { toDateKey, addDays, weekdayOfKey, weekStartKey, monthStartKey, normalizeWeekKey } from "./lib/dateUtils.js";
 
 // ─── SUPABASE ───
 const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
@@ -28,14 +29,15 @@ const load = async () => {
 };
 
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36);
-const isoDate = (d) => new Date(d).toISOString().slice(0,10);
-const today = () => isoDate(new Date());
-const weekStart = (d = new Date()) => { const dd = new Date(d); const day = dd.getDay(); dd.setDate(dd.getDate() - day + (day===0?-6:1)); dd.setHours(0,0,0,0); return dd; };
-const monthStart = (d = new Date()) => { const dd = new Date(d); dd.setDate(1); dd.setHours(0,0,0,0); return dd; };
-const dayName = (d) => ["So","Mo","Di","Mi","Do","Fr","Sa"][new Date(d).getDay()];
+// Lokale Kalendertage (Europe/Berlin) als "YYYY-MM-DD"; Wochen-/Monatsbeginn ebenfalls als Schlüssel
+const isoDate = (d) => toDateKey(d);
+const today = () => toDateKey(new Date());
+const weekStart = (d = new Date()) => weekStartKey(d);
+const monthStart = (d = new Date()) => monthStartKey(d);
+const dayName = (d) => ["So","Mo","Di","Mi","Do","Fr","Sa"][weekdayOfKey(d)];
 const fmtDate = (d) => new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
-const prevWeekStart = () => { const d = weekStart(); d.setDate(d.getDate()-7); return d; };
-const prevWeekEnd = () => { const d = weekStart(); d.setDate(d.getDate()-1); d.setHours(23,59,59,999); return d; };
+const prevWeekStart = () => addDays(weekStart(), -7);
+const prevWeekEnd = () => addDays(weekStart(), -1);
 
 const DEFAULT_CATEGORIES = [
   {id:"c1",name:"Ordnung",emoji:"🧹",assignedTo:[]},
@@ -86,7 +88,7 @@ const BADGES = [
   { id:"b7", name:"3-Tage-Streak", emoji:"🔥", desc:"3 Tage am Stück aktiv", check: (c) => getMaxStreak(c)>=3 },
   { id:"b8", name:"7-Tage-Streak", emoji:"💎", desc:"7 Tage am Stück aktiv", check: (c) => getMaxStreak(c)>=7 },
   { id:"b9", name:"Wochenchampion", emoji:"🏆", desc:"Einmal Wochenchampion", check: (c,tasks,data,mid) => (data.championHistory||[]).some(h=>h.memberId===mid) },
-  { id:"b10", name:"100er Club", emoji:"💯", desc:"100 Punkte in einer Woche", check: (c) => { const ws=weekStart(); return c.filter(x=>new Date(x.date)>=ws).reduce((s,x)=>s+x.points,0)>=100; }},
+  { id:"b10", name:"100er Club", emoji:"💯", desc:"100 Punkte in einer Woche", check: (c) => { const ws=weekStart(); return c.filter(x=>isoDate(x.date)>=ws).reduce((s,x)=>s+x.points,0)>=100; }},
 ];
 
 function getMaxStreak(completions) {
@@ -104,7 +106,7 @@ function getCurrentStreak(completions) {
   if (!completions.length) return 0;
   const days = [...new Set(completions.map(c=>isoDate(c.date)))].sort().reverse();
   const t = today();
-  if (days[0]!==t && days[0]!==isoDate(new Date(Date.now()-86400000))) return 0;
+  if (days[0]!==t && days[0]!==addDays(t,-1)) return 0;
   let streak=1;
   for (let i=1;i<days.length;i++) {
     const prev=new Date(days[i-1]); const curr=new Date(days[i]);
@@ -245,21 +247,23 @@ export default function App(){
   // Weekly champion check
   useEffect(()=>{
     if(!data) return;
-    const currentWeekMon = isoDate(weekStart());
-    if(data.lastChampionWeek && data.lastChampionWeek !== currentWeekMon && data.lastChampionWeek < currentWeekMon){
+    const currentWeekMon = weekStart();
+    // Ältere Einträge wurden per UTC als Sonntag gespeichert → auf den lokalen Montag normalisieren
+    const lastWeek = normalizeWeekKey(data.lastChampionWeek);
+    if(lastWeek && lastWeek !== currentWeekMon && lastWeek < currentWeekMon){
       // New week started – evaluate previous week's champion
       const pws = prevWeekStart();
       const pwe = prevWeekEnd();
-      const prevWeekC = data.completions.filter(c=>{ const d=new Date(c.date); return d>=pws && d<=pwe && c.confirmed!==false; });
+      const prevWeekC = data.completions.filter(c=>{ const d=isoDate(c.date); return d>=pws && d<=pwe && c.confirmed!==false; });
       if(prevWeekC.length > 0){
         const scores = data.members.map(m=>({...m,pts:prevWeekC.filter(c=>c.memberId===m.id).reduce((s,c)=>s+c.points,0)})).sort((a,b)=>b.pts-a.pts);
         if(scores[0]?.pts > 0){
-          setCeremonyData({champion:scores[0], scores, weekOf:data.lastChampionWeek});
+          setCeremonyData({champion:scores[0], scores, weekOf:lastWeek});
           setShowCeremony(true);
           // Save champion to history
-          const alreadySaved = (data.championHistory||[]).some(h=>h.week===data.lastChampionWeek);
+          const alreadySaved = (data.championHistory||[]).some(h=>normalizeWeekKey(h.week)===lastWeek);
           if(!alreadySaved){
-            const next = {...data, championHistory:[...(data.championHistory||[]),{memberId:scores[0].id,name:scores[0].name,emoji:scores[0].emoji,pts:scores[0].pts,week:data.lastChampionWeek}], lastChampionWeek:currentWeekMon};
+            const next = {...data, championHistory:[...(data.championHistory||[]),{memberId:scores[0].id,name:scores[0].name,emoji:scores[0].emoji,pts:scores[0].pts,week:lastWeek}], lastChampionWeek:currentWeekMon};
             setData(next); save(next);
             return;
           }
@@ -291,8 +295,8 @@ export default function App(){
   if(loadState!=="loaded"||!data) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#1e1b4b",fontFamily:"'Fredoka',sans-serif"}}><div style={{fontSize:52,animation:"spin 1s linear infinite"}}>🏆</div></div>;
 
   const ws=weekStart(), ms=monthStart();
-  const weekC=data.completions.filter(c=>new Date(c.date)>=ws);
-  const monthC=data.completions.filter(c=>new Date(c.date)>=ms);
+  const weekC=data.completions.filter(c=>isoDate(c.date)>=ws);
+  const monthC=data.completions.filter(c=>isoDate(c.date)>=ms);
   const pts=(mid,arr=data.completions)=>arr.filter(c=>c.memberId===mid&&c.confirmed!==false).reduce((s,c)=>s+c.points,0);
   const weekPts=(mid)=>pts(mid,weekC);
   const monthPts=(mid)=>pts(mid,monthC);
@@ -540,7 +544,7 @@ export default function App(){
     const maxMo=Math.max(...sortedM.map(m=>monthPts(m.id)),1);
     const sortedA=[...data.members].sort((a,b)=>pts(b.id)-pts(a.id));
     const maxA=Math.max(...sortedA.map(m=>pts(m.id)),1);
-    const last7=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return isoDate(d);});
+    const last7=Array.from({length:7},(_,i)=>addDays(today(),-6+i));
     const maxDay=Math.max(...last7.map(d=>data.completions.filter(c=>isoDate(c.date)===d&&c.confirmed!==false).reduce((s,c)=>s+c.points,0)),1);
 
     const catStats=cats.filter(c=>data.tasks.some(t=>t.category===c.name)).map(cat=>{
@@ -830,7 +834,7 @@ export default function App(){
         <button onClick={()=>{if(confirm("Alle Wochenpunkte der Kinder zurücksetzen? Gesamtpunkte, Aufgaben, Belohnungen und Profile bleiben erhalten."))
           update(prev=>{
             const ws=weekStart();
-            return {...prev, completions: prev.completions.filter(c=>new Date(c.date)<ws)};
+            return {...prev, completions: prev.completions.filter(c=>isoDate(c.date)<ws)};
           });
           flash("Wochenpunkte zurückgesetzt!");}} style={{...S.btn("#f97316","#fff"),marginBottom:8}}>🔄 Nur Wochenpunkte zurücksetzen</button>
         <button onClick={()=>{if(confirm("ALLE verdienten Punkte aller Kinder zurücksetzen? Aufgaben, Belohnungen, Profile und Kategorien bleiben erhalten."))
