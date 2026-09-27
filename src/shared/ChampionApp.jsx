@@ -129,7 +129,10 @@ const READ_ONLY_HINT = "Diese Funktion wird gerade vorbereitet.";
 //   actions            FAMILY (ab 4C2A): gezielte Backend-Aktionen statt update(prev → next).
 //                      { completeTask(task, member), undoCompletion(completion), confirmCompletion(id),
 //                        rejectCompletion(id), redeemReward(reward, member), verifyPin(pin),
-//                        updateSettings(patch), changePin({currentPin,newPin,newPin2}) } → Promise<{ok, message?}>
+//                        updateSettings(patch), changePin({currentPin,newPin,newPin2}),
+//                        ab 4C2B1: save(kind, item), remove(kind, id), restore(kind, id), reorder(kind, ids),
+//                        correctCompletion(id), reconfirmCompletion(id), acknowledgeRedemptions(ids) } → Promise<{ok, message?}>
+//                      kind ∈ task | reward | category | member
 //                      Der Wrapper lädt nach Erfolg die Daten neu (keine optimistische UI).
 //   settings           FAMILY: { showDailyCrown, requireConfirmation } für die Einstellungs-Schalter
 //   adminUnlocked      FAMILY: Elternbereich entsperrt (Auth-Rolle + PIN, Zustand im Wrapper)
@@ -206,6 +209,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     persistUpdate(fn);
   },[readOnly,persistUpdate]);
   useEffect(()=>{ if(notice?.text) flash(notice.text,3500); },[notice?.id]);
+  // FAMILY: Beim Sperren des Elternbereichs offene Verwaltungsdialoge schließen.
+  useEffect(()=>{ if(fam&&!adminUnlocked){setEditTask(null);setEditMember(null);setEditReward(null);setEditCategory(null);setShowPointsManager(false);setPointsManagerMember(null);} },[fam,adminUnlocked]);
   const boom=()=>{setConfetti(true);setTimeout(()=>setConfetti(false),2200);};
   // FAMILY: Serveraktion ausführen; während sie (inkl. Neuladen) läuft, sind Aktionen gesperrt.
   const runAction=async(fn)=>{
@@ -215,6 +220,21 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     catch(e){ return {ok:false,message:"Das hat leider nicht geklappt. Bitte versucht es erneut."}; }
     finally{ setBusy(false); }
   };
+  // FAMILY-Verwaltung: Aktion ausführen und Ergebnis melden (Fehler etwas länger sichtbar)
+  const famAct=async(fn,okMsg)=>{const r=await runAction(fn);if(r)flash(r.ok?(r.message||okMsg):r.message,r.ok?2200:3500);return r;};
+  const REMOVE_ASK={task:"Aufgabe löschen? Bereits erledigte Aufgaben werden nur archiviert – Punkte und Verlauf bleiben erhalten.",reward:"Belohnung löschen? Bereits eingelöste Belohnungen werden nur archiviert.",category:"Kategorie löschen?",member:"Kinderprofil entfernen? Profile mit Punkten oder Verlauf werden nur archiviert."};
+  const famRemove=(kind,item)=>{if(busy||!confirm(`„${item.name}“: ${REMOVE_ASK[kind]}`))return;famAct(()=>actions.remove(kind,item.id));};
+  const famSave=async(kind,item,close)=>{const r=await runAction(()=>actions.save(kind,item));if(!r)return;if(r.ok){close();flash(r.created?"Erstellt!":"Gespeichert!");}else flash(r.message,3500);};
+  const moveBtns=(kind,list,item)=>{const ids=list.map(x=>x.id),i=ids.indexOf(item.id);const mv=(dlt)=>{const j=i+dlt;if(j<0||j>=ids.length||busy)return;const next=[...ids];[next[i],next[j]]=[next[j],next[i]];famAct(()=>actions.reorder(kind,next),"Reihenfolge gespeichert");};
+    const st=(on)=>({background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 7px",cursor:on?"pointer":"default",color:"#c7d2fe",opacity:on?1:0.35,fontSize:12});
+    return <><button aria-label={`Nach oben: ${item.name}`} disabled={i===0||busy} onClick={()=>mv(-1)} style={st(i>0)}>▲</button><button aria-label={`Nach unten: ${item.name}`} disabled={i===ids.length-1||busy} onClick={()=>mv(1)} style={st(i<ids.length-1)}>▼</button></>;};
+  const archivedList=(kind,items,label)=>fam&&items&&items.length>0&&<div style={{marginTop:10,paddingTop:8,borderTop:"1px dashed rgba(255,255,255,0.15)"}} data-testid={`archived-${kind}`}>
+    <div style={{fontSize:12,color:"#a5b4fc",marginBottom:4}}>🗄️ Archiviert ({items.length}) – {label}</div>
+    {items.map(x=><div key={x.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",color:"#94a3b8",fontSize:13}}>
+      <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{x.emoji} {x.name}</span>
+      <button aria-label={`Wiederherstellen: ${x.name}`} disabled={busy} onClick={()=>famAct(()=>actions.restore(kind,x.id),"Wiederhergestellt")} style={{background:"rgba(34,197,94,0.2)",color:"#86efac",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>↺ Wiederherstellen</button>
+    </div>)}
+  </div>;
 
   if(!data) return null;
 
@@ -337,7 +357,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     badge:(c="#fbbf24")=>({display:"inline-flex",alignItems:"center",justifyContent:"center",background:c,color:"#fff",borderRadius:99,padding:"2px 10px",fontSize:13,fontWeight:700}),
     pill:(c,a)=>({display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"8px 14px",borderRadius:16,background:a?c+"30":"rgba(255,255,255,0.06)",border:a?`2.5px solid ${c}`:"2.5px solid rgba(255,255,255,0.1)",cursor:"pointer",transition:"all 0.15s",minWidth:66}),
     btn:(bg="#fbbf24",clr="#1e1b4b")=>({background:bg,color:clr,border:"none",borderRadius:14,padding:"12px 24px",fontSize:16,fontWeight:700,fontFamily:"inherit",cursor:"pointer",width:"100%",transition:"all 0.15s"}),
-    inp:{width:"100%",padding:"10px 14px",borderRadius:12,border:"2px solid #e2e8f0",fontSize:15,fontFamily:"inherit",boxSizing:"border-box",background:"#fff",color:"#1e293b"},
+    inp:{width:"100%",padding:"10px 14px",borderRadius:12,border:"2px solid #e2e8f0",fontSize:fam?16:15,fontFamily:"inherit",boxSizing:"border-box",background:"#fff",color:"#1e293b"},
     tag:(a)=>({padding:"6px 14px",borderRadius:99,border:"none",background:a?"#fbbf24":"rgba(255,255,255,0.1)",color:a?"#1e1b4b":"#a5b4fc",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}),
     statBox:{background:"rgba(255,255,255,0.08)",borderRadius:16,padding:"12px 14px",flex:1,textAlign:"center",border:"1px solid rgba(255,255,255,0.08)"},
     bar:{height:8,background:"rgba(255,255,255,0.1)",borderRadius:99,overflow:"hidden",marginTop:4},
@@ -699,8 +719,10 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔔 Benachrichtigungen</div>
         {unreadNotifs.map(n=><div key={n.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe",fontSize:13}}>
           <span style={{flex:1}}>{n.message}</span>
+          {fam&&<button aria-label={`Gesehen: ${n.message}`} disabled={busy} onClick={()=>famAct(()=>actions.acknowledgeRedemptions([n.redemptionId]),"Als gesehen markiert")} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc",fontFamily:"inherit"}}>✓ Gesehen</button>}
           {!fam&&<button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(nn=>nn.id===n.id?{...nn,read:true}:nn)}))} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc"}}>✓ Gelesen</button>}
         </div>)}
+        {fam&&unreadNotifs.length>1&&<button disabled={busy} onClick={()=>famAct(()=>actions.acknowledgeRedemptions(unreadNotifs.map(n=>n.redemptionId)),"Alle als gesehen markiert")} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>Alle als gesehen markieren</button>}
         {!fam&&<button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(n=>({...n,read:true}))}))} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>Alle als gelesen markieren</button>}
       </div>}
 
@@ -715,21 +737,27 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         </div>;})}
       </div>}
 
-      {fam&&<div style={{...S.card,fontSize:13,color:"#a5b4fc"}} data-testid="crud-hint">✏️ Aufgaben, Belohnungen, Profile und Kategorien bearbeiten: folgt im nächsten Update. Die Listen unten sind nur zur Ansicht.</div>}
+      {fam&&<div style={S.card}>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:6,color:"#fff"}}>⭐ Punkte korrigieren</div>
+        <div style={{fontSize:12,color:"#a5b4fc",marginBottom:4}}>Versehentlich bestätigte Erledigungen zurücknehmen oder zurückgenommene wieder bestätigen. Der Verlauf bleibt erhalten.</div>
+        <button onClick={()=>setShowPointsManager(true)} style={{...S.btn("#4338ca","#fff"),marginTop:8}}>⭐ Erledigungen korrigieren</button>
+      </div>}
 
       {/* Tasks */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📋 Aufgaben ({data.tasks.length})</div>
-          {!fam&&<button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
+          {<button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:fam?(cats[0]?.name||""):"Ordnung",recurring:"daily",assignedTo:[],photo:null,...(fam?{active:true}:{})})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
         {data.tasks.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           {t.photo?<img src={t.photo} style={{width:24,height:24,borderRadius:6,objectFit:"cover"}}/>:<span style={{fontSize:18}}>{t.emoji}</span>}
           <div style={{flex:1,fontSize:13}}>{t.name} {t.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({t.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{t.points}⭐</span>
-          {!fam&&<button onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {!fam&&<button onClick={()=>{update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+          {fam&&moveBtns("task",data.tasks,t)}
+          {<button aria-label={`Bearbeiten: ${t.name}`} onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {<button aria-label={`Löschen: ${t.name}`} onClick={()=>{if(fam){famRemove("task",t);return;}update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
+        {archivedList("task",data.archived?.tasks,"Verlauf bleibt erhalten")}
       </div>
 
       {/* Rewards with suggestions */}
@@ -738,7 +766,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>🎁 Belohnungen</div>
           <div style={{display:"flex",gap:6}}>
             {!fam&&<button onClick={()=>setShowRewardSuggestions(!showRewardSuggestions)} style={{background:"rgba(255,255,255,0.1)",color:"#a5b4fc",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💡 Vorschläge</button>}
-            {!fam&&<button onClick={()=>setEditReward({id:"",name:"",emoji:"🎉",pointsCost:50,assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
+            {<button onClick={()=>setEditReward({id:"",name:"",emoji:"🎉",pointsCost:50,assignedTo:[],...(fam?{active:true}:{})})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
           </div>
         </div>
         {showRewardSuggestions&&<div style={{background:"rgba(251,191,36,0.1)",borderRadius:12,padding:12,marginBottom:12,border:"1px solid rgba(251,191,36,0.2)"}}>
@@ -753,34 +781,40 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <span style={{fontSize:18}}>{r.emoji}</span>
           <div style={{flex:1,fontSize:13}}>{r.name} {r.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({r.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{r.pointsCost}⭐</span>
-          {!fam&&<button onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {!fam&&<button onClick={()=>{update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+          {fam&&moveBtns("reward",data.rewards,r)}
+          {<button aria-label={`Bearbeiten: ${r.name}`} onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {<button aria-label={`Löschen: ${r.name}`} onClick={()=>{if(fam){famRemove("reward",r);return;}update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
+        {archivedList("reward",data.archived?.rewards,"bisherige Einlösungen bleiben erhalten")}
       </div>
 
       {/* Members */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>👨‍👩‍👧‍👦 Mitglieder</div>
-          {!fam&&<button onClick={()=>setEditMember({id:"",name:"",emoji:"😊",color:"#6366f1",isAdmin:false,photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
+          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>{fam?"🧒 Kinder":"👨‍👩‍👧‍👦 Mitglieder"}</div>
+          {<button onClick={()=>setEditMember({id:"",name:"",emoji:fam?"🙂":"😊",color:fam?"#16a34a":"#6366f1",isAdmin:false,photo:null,...(fam?{active:true}:{})})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
         {data.members.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           <Avatar member={m} size={24}/><div style={{flex:1,fontSize:13}}>{m.name} {m.isAdmin&&<span style={{color:"#6366f1"}}>(Admin)</span>}</div>
-          {!fam&&<button onClick={()=>setEditMember({...m,photo:m.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {fam&&moveBtns("member",data.members,m)}
+          {<button aria-label={`Bearbeiten: ${m.name}`} onClick={()=>setEditMember({...m,photo:m.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {fam&&<button aria-label={`Löschen: ${m.name}`} onClick={()=>famRemove("member",m)} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
+        {archivedList("member",data.archived?.members,"Punkte und Verlauf bleiben erhalten")}
       </div>
 
       {/* Categories */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📂 Kategorien</div>
-          {!fam&&<button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
+          {<button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
         {cats.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           <span style={{fontSize:18}}>{c.emoji}</span>
           <div style={{flex:1,fontSize:13}}>{c.name} {c.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({c.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
-          {!fam&&<button onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {!fam&&<button onClick={()=>{const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+          {fam&&moveBtns("category",cats,c)}
+          {<button aria-label={`Bearbeiten: ${c.name}`} onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {<button aria-label={`Löschen: ${c.name}`} onClick={()=>{if(fam){famRemove("category",c);return;}const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
       </div>
 
@@ -855,8 +889,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
           {TASK_CLIPARTS.map(e=><button key={e} onClick={()=>setEditTask({...editTask,emoji:e,photo:null})} style={{fontSize:22,padding:4,borderRadius:10,border:editTask.emoji===e&&!editTask.photo?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{e}</button>)}
         </div>
-        <PhotoUpload currentPhoto={editTask.photo} onPhoto={(p)=>setEditTask({...editTask,photo:p})} label="Eigenes Bild hochladen"/>
-        {editTask.photo&&<button onClick={()=>setEditTask({...editTask,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Bild entfernen</button>}
+        {!fam&&<PhotoUpload currentPhoto={editTask.photo} onPhoto={(p)=>setEditTask({...editTask,photo:p})} label="Eigenes Bild hochladen"/>}
+        {!fam&&editTask.photo&&<button onClick={()=>setEditTask({...editTask,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Bild entfernen</button>}
         <label style={{...S.label,marginTop:12}}>Punkte</label>
         <input type="number" value={editTask.points} onChange={e=>setEditTask({...editTask,points:parseInt(e.target.value)||0})} style={{...S.inp,marginBottom:12}}/>
         <label style={S.label}>Kategorie</label>
@@ -870,12 +904,13 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           )}
         </div>
         <label style={S.label}>Zugeordnet an <span style={{fontWeight:500,color:"#94a3b8"}}>(mehrere möglich)</span></label>
-        <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>Wähle "Alle" oder tippe mehrere Kinder an, um die Aufgabe individuell zuzuordnen.</div>
+        <div style={{fontSize:fam?13:11,color:"#94a3b8",marginBottom:6}}>Wähle "Alle" oder tippe mehrere Kinder an, um die Aufgabe individuell zuzuordnen.</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
           <button onClick={()=>setEditTask({...editTask,assignedTo:[]})} style={S.mbtn((editTask.assignedTo||[]).length===0)}>👥 Alle</button>
           {kids.map(m=><button key={m.id} onClick={()=>toggleAssign(m.id)} style={S.mbtn((editTask.assignedTo||[]).includes(m.id))}>{(editTask.assignedTo||[]).includes(m.id)?"✓ ":""}{m.emoji} {m.name}</button>)}
         </div>
-        <button onClick={()=>{if(!editTask.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,tasks:[...prev.tasks,{...editTask,id:uid()}]};return{...prev,tasks:prev.tasks.map(t=>t.id===editTask.id?editTask:t)};});setEditTask(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
+{fam&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:15,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editTask.active!==false} onChange={e=>setEditTask({...editTask,active:e.target.checked})} style={{width:20,height:20,accentColor:"#4338ca"}}/> Aktiv (für Kinder sichtbar)</label>}
+        <button disabled={busy} onClick={()=>{if(fam){famSave("task",editTask,()=>setEditTask(null));return;}if(!editTask.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,tasks:[...prev.tasks,{...editTask,id:uid()}]};return{...prev,tasks:prev.tasks.map(t=>t.id===editTask.id?editTask:t)};});setEditTask(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
         <button onClick={()=>setEditTask(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
       </div>
     </div>;
@@ -889,15 +924,16 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     const colors=["#2563eb","#dc2626","#16a34a","#eab308","#f97316","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditMember(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neues Mitglied":"Bearbeiten"}</div>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?(fam?"Neues Kind":"Neues Mitglied"):"Bearbeiten"}</div>
         <label style={S.label}>Name</label>
         <input value={editMember.name} onChange={e=>setEditMember({...editMember,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
-        <label style={{...S.label,marginBottom:8}}>Profilbild</label>
+        {!fam&&<><label style={{...S.label,marginBottom:8}}>Profilbild</label>
         <div style={{marginBottom:12}}>
           <PhotoUpload currentPhoto={editMember.photo} onPhoto={(p)=>setEditMember({...editMember,photo:p})}/>
           {editMember.photo&&<button onClick={()=>setEditMember({...editMember,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Foto entfernen</button>}
         </div>
-        <label style={{...S.label,marginBottom:8}}>Emoji (Fallback)</label>
+        </>}
+        <label style={{...S.label,marginBottom:8}}>{fam?"Emoji":"Emoji (Fallback)"}</label>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
           {emojis.map(em=><button key={em} onClick={()=>setEditMember({...editMember,emoji:em})} style={{fontSize:26,padding:5,borderRadius:12,border:editMember.emoji===em?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{em}</button>)}
         </div>
@@ -905,8 +941,9 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
           {colors.map(c=><button key={c} onClick={()=>setEditMember({...editMember,color:c})} style={{width:34,height:34,borderRadius:99,background:c,border:editMember.color===c?"3px solid #1e293b":"2px solid transparent",cursor:"pointer"}}/>)}
         </div>
-        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:14,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editMember.isAdmin} onChange={e=>setEditMember({...editMember,isAdmin:e.target.checked})} style={{width:18,height:18,accentColor:"#4338ca"}}/> Admin (Eltern)</label>
-        <button onClick={()=>{if(!editMember.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,members:[...prev.members,{...editMember,id:uid()}]};return{...prev,members:prev.members.map(m=>m.id===editMember.id?editMember:m)};});setEditMember(null);flash(isNew?"Hinzugefügt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
+        {!fam&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:14,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editMember.isAdmin} onChange={e=>setEditMember({...editMember,isAdmin:e.target.checked})} style={{width:18,height:18,accentColor:"#4338ca"}}/> Admin (Eltern)</label>}
+        {fam&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:15,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editMember.active!==false} onChange={e=>setEditMember({...editMember,active:e.target.checked})} style={{width:20,height:20,accentColor:"#4338ca"}}/> Aktiv (in der Hauptansicht sichtbar)</label>}
+        <button disabled={busy} onClick={()=>{if(fam){famSave("member",editMember,()=>setEditMember(null));return;}if(!editMember.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,members:[...prev.members,{...editMember,id:uid()}]};return{...prev,members:prev.members.map(m=>m.id===editMember.id?editMember:m)};});setEditMember(null);flash(isNew?"Hinzugefügt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
         <button onClick={()=>setEditMember(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
       </div>
     </div>;
@@ -935,7 +972,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <button onClick={()=>setEditReward({...editReward,assignedTo:[]})} style={S.mbtn((editReward.assignedTo||[]).length===0)}>👥 Alle Kinder</button>
           {kids.map(m=><button key={m.id} onClick={()=>toggleAssign(m.id)} style={S.mbtn((editReward.assignedTo||[]).includes(m.id))}>{(editReward.assignedTo||[]).includes(m.id)?"✓ ":""}{m.emoji} {m.name}</button>)}
         </div>
-        <button onClick={()=>{if(!editReward.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,rewards:[...prev.rewards,{...editReward,id:uid()}]};return{...prev,rewards:prev.rewards.map(r=>r.id===editReward.id?editReward:r)};});setEditReward(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
+{fam&&<label style={{display:"flex",alignItems:"center",gap:8,fontSize:15,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editReward.active!==false} onChange={e=>setEditReward({...editReward,active:e.target.checked})} style={{width:20,height:20,accentColor:"#4338ca"}}/> Aktiv (für Kinder einlösbar)</label>}
+        <button disabled={busy} onClick={()=>{if(fam){famSave("reward",editReward,()=>setEditReward(null));return;}if(!editReward.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,rewards:[...prev.rewards,{...editReward,id:uid()}]};return{...prev,rewards:prev.rewards.map(r=>r.id===editReward.id?editReward:r)};});setEditReward(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
         <button onClick={()=>setEditReward(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
       </div>
     </div>;
@@ -965,7 +1003,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <button onClick={()=>setEditCategory({...editCategory,assignedTo:[]})} style={S.mbtn((editCategory.assignedTo||[]).length===0)}>👥 Alle</button>
           {kids.map(m=><button key={m.id} onClick={()=>toggleAssign(m.id)} style={S.mbtn((editCategory.assignedTo||[]).includes(m.id))}>{(editCategory.assignedTo||[]).includes(m.id)?"✓ ":""}{m.emoji} {m.name}</button>)}
         </div>
-        <button onClick={()=>{if(!editCategory.name.trim()){flash("Name fehlt!");return;}const cur=data.customCategories||[...DEFAULT_CATEGORIES];if(isNew){const nc=[...cur,{...editCategory,id:uid()}];update(prev=>({...prev,customCategories:nc}));}else{const nc=cur.map(c=>c.id===editCategory.id?editCategory:c);update(prev=>({...prev,customCategories:nc}));}setEditCategory(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
+        <button disabled={busy} onClick={()=>{if(fam){famSave("category",editCategory,()=>setEditCategory(null));return;}if(!editCategory.name.trim()){flash("Name fehlt!");return;}const cur=data.customCategories||[...DEFAULT_CATEGORIES];if(isNew){const nc=[...cur,{...editCategory,id:uid()}];update(prev=>({...prev,customCategories:nc}));}else{const nc=cur.map(c=>c.id===editCategory.id?editCategory:c);update(prev=>({...prev,customCategories:nc}));}setEditCategory(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
         <button onClick={()=>setEditCategory(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
       </div>
     </div>;
@@ -1016,9 +1054,21 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
               <div style={{fontWeight:600,color:"#1e293b"}}>{c.taskName}</div>
               <div style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(c.date)} · +{c.points}⭐ {c.needsConfirm&&!c.confirmed&&"· ⏳ unbestätigt"}</div>
             </div>
-            <button onClick={()=>{if(confirm(`"${c.taskName}" (+${c.points}⭐) zurücknehmen?`)){update(prev=>({...prev,completions:prev.completions.filter(cc=>cc.id!==c.id)}));flash("Zurückgenommen!");}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑️ Zurücknehmen</button>
+            {fam&&(c.confirmed?<button aria-label={`Zurücknehmen: ${c.taskName}`} disabled={busy} onClick={()=>{if(confirm(`"${c.taskName}" (+${c.points}⭐) zurücknehmen? Die Punkte zählen dann nicht mehr; der Eintrag bleibt im Verlauf.`))famAct(()=>actions.correctCompletion(c.id),"Zurückgenommen – Punkte abgezogen");}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"6px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>↩️ Zurücknehmen</button>:<span style={{fontSize:12,color:"#b45309"}}>⏳ offen</span>)}
+            {!fam&&<button onClick={()=>{if(confirm(`"${c.taskName}" (+${c.points}⭐) zurücknehmen?`)){update(prev=>({...prev,completions:prev.completions.filter(cc=>cc.id!==c.id)}));flash("Zurückgenommen!");}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑️ Zurücknehmen</button>}
           </div>)}
         </div>
+
+        {fam&&(()=>{const rej=(data.rejectedCompletions||[]).filter(c=>c.memberId===m.id).slice().reverse();return <>
+          <div style={{fontWeight:700,fontSize:14,marginTop:16,marginBottom:8,color:"#1e293b"}}>↩️ Zurückgenommen / abgelehnt ({rej.length})</div>
+          <div style={{maxHeight:180,overflowY:"auto",marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10}} data-testid="rejected-list">
+            {rej.length===0&&<div style={{padding:12,color:"#94a3b8",fontSize:13,textAlign:"center"}}>Keine zurückgenommenen Einträge</div>}
+            {rej.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderBottom:"1px solid #f1f5f9",fontSize:13}}>
+              <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600,color:"#64748b",textDecoration:"line-through"}}>{c.taskName}</div><div style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(c.date)} · {c.points}⭐ zählt nicht</div></div>
+              <button aria-label={`Wieder bestätigen: ${c.taskName}`} disabled={busy} onClick={()=>famAct(()=>actions.reconfirmCompletion(c.id),"Wieder bestätigt")} style={{background:"#f0fdf4",color:"#16a34a",border:"none",borderRadius:8,padding:"6px 10px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>✓ Wieder bestätigen</button>
+            </div>)}
+          </div>
+        </>;})()}
 
         <div style={{fontWeight:700,fontSize:14,marginTop:16,marginBottom:8,color:"#1e293b"}}>🎁 Eingelöste Belohnungen ({memberRedeemed.length})</div>
         <div style={{maxHeight:180,overflowY:"auto",marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10}}>
@@ -1028,7 +1078,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
               <div style={{fontWeight:600,color:"#1e293b"}}>{r.rewardName}</div>
               <div style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(r.date)} · -{r.pointsCost}⭐</div>
             </div>
-            <button onClick={()=>{if(confirm(`Einlösung "${r.rewardName}" (-${r.pointsCost}⭐) zurücknehmen? Die Punkte werden wieder gutgeschrieben.`)){update(prev=>({...prev,redeemedRewards:(prev.redeemedRewards||[]).filter(rr=>rr.id!==r.id)}));flash("Einlösung zurückgenommen!");}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑️ Zurücknehmen</button>
+            {fam&&<span style={{fontSize:12,color:r.acknowledged?"#16a34a":"#b45309"}}>{r.acknowledged?"✓ gesehen":"🔔 neu"}</span>}
+            {!fam&&<button onClick={()=>{if(confirm(`Einlösung "${r.rewardName}" (-${r.pointsCost}⭐) zurücknehmen? Die Punkte werden wieder gutgeschrieben.`)){update(prev=>({...prev,redeemedRewards:(prev.redeemedRewards||[]).filter(rr=>rr.id!==r.id)}));flash("Einlösung zurückgenommen!");}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑️ Zurücknehmen</button>}
           </div>)}
         </div>
 

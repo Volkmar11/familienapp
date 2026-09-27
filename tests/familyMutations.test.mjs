@@ -25,6 +25,10 @@ function stub(responses) {
         delete() { q.op = "delete"; return b; },
         eq(c, v) { q.filters.push(["eq", c, v]); return b; },
         neq(c, v) { q.filters.push(["neq", c, v]); return b; },
+        in(c, v) { q.filters.push(["in", c, v]); return b; },
+        is(c, v) { q.filters.push(["is", c, v]); return b; },
+        order() { return b; },
+        limit() { return b; },
         maybeSingle() { return Promise.resolve(responses(q)); },
         single() { return Promise.resolve(responses(q)); },
         then(res, rej) { return Promise.resolve(responses(q)).then(res, rej); },
@@ -167,4 +171,91 @@ test("Statisch: PIN nie in Storage/Log; Einlösen nie per Client-Insert; Admin n
   }
   const gate = strip(fs.readFileSync(path.join(ROOT, "src/family/FamilyChampion.jsx"), "utf8"));
   assert.doesNotMatch(gate, /isParentPlayer|isAdmin/, "Adminzugang darf nicht an Spielerprofilen hängen");
+});
+
+// ---------------------------------------------------------------- Phase 4C2B1: Elternverwaltung
+test("Validierung: Aufgabe/Belohnung/Kategorie/Profil (Längen, Punkte, Farbe)", () => {
+  assert.match(M.validateTask({ title: " ", points: 1, recurrence: "daily" }), /Namen/);
+  assert.match(M.validateTask({ title: "x".repeat(81), points: 1, recurrence: "daily" }), /80/);
+  assert.match(M.validateTask({ title: "x", points: 10001, recurrence: "daily" }), /10000/);
+  assert.match(M.validateTask({ title: "x", points: 1.5, recurrence: "daily" }), /ganze Zahl/);
+  assert.match(M.validateTask({ title: "x", points: 1, recurrence: "monthly" }), /Wiederholung/);
+  assert.equal(M.validateTask({ title: "Zimmer", points: 0, recurrence: "once", icon: "🧹" }), "");
+  assert.match(M.validateReward({ title: "Kino", pointsRequired: 100001 }), /100000/);
+  assert.equal(M.validateReward({ title: "Kino", pointsRequired: 50 }), "");
+  assert.match(M.validateCategory({ name: "x".repeat(41) }), /40/);
+  assert.match(M.validateProfile({ name: "Alex", color: "rot" }), /Farbe/);
+  assert.equal(M.validateProfile({ name: "Alex", avatarEmoji: "🦊", color: "#16a34a" }), "");
+});
+
+test("moveInList: Nachbartausch, Ränder → null", () => {
+  assert.deepEqual(M.moveInList(["a", "b", "c"], "b", -1), ["b", "a", "c"]);
+  assert.deepEqual(M.moveInList(["a", "b", "c"], "b", 1), ["a", "c", "b"]);
+  assert.equal(M.moveInList(["a", "b"], "a", -1), null);
+  assert.equal(M.moveInList(["a", "b"], "b", 1), null);
+  assert.equal(M.moveInList(["a"], "x", 1), null);
+});
+
+function crudStub({ rpcError = null } = {}) {
+  return stub((q) => {
+    if (q.table === "tasks" && q.op === "select") return { data: [{ sort_order: 4 }], error: null };
+    if (q.table === "tasks" && q.op === "insert") return { data: { id: "t-new" }, error: null };
+    if (q.table === "tasks" && q.op === "update") return { data: [{ id: "t-new" }], error: null };
+    if (q.table === "rpc:set_task_assignments") return rpcError ? { data: null, error: rpcError } : { data: q.payload.p_profile_ids, error: null };
+    return { data: null, error: null };
+  });
+}
+
+test("saveTask neu mit Teilmenge: erst inaktiv anlegen, atomar zuordnen, dann aktivieren", async () => {
+  const c = crudStub();
+  const r = await M.saveTask(c, { familyId: "f", task: { title: " Rasen ", points: 5, recurrence: "weekly", categoryId: "c1", assignedTo: ["p1"] } });
+  assert.equal(r.ok, true);
+  const ins = c.calls.find((q) => q.op === "insert");
+  assert.deepEqual(ins.payload, { title: "Rasen", points: 5, recurrence: "weekly", icon: null, category_id: "c1", family_id: "f", sort_order: 5, active: false });
+  assert.deepEqual(c.calls.find((q) => q.op === "rpc").payload, { p_family_id: "f", p_task_id: "t-new", p_profile_ids: ["p1"] });
+  assert.deepEqual(c.calls.filter((q) => q.op === "update").map((q) => q.payload), [{ active: true }]);
+});
+
+test("saveTask: Zuordnung scheitert → Aufgabe bleibt inaktiv (nie versehentlich „für alle“)", quiet(async () => {
+  const c = crudStub({ rpcError: { code: "22023", message: "Ungültige Profilzuordnung" } });
+  const r = await M.saveTask(c, { familyId: "f", task: { title: "Rasen", points: 5, recurrence: "daily", assignedTo: ["fremd"] } });
+  assert.equal(r.ok, false);
+  assert.equal(r.message, M.MESSAGES.invalid);
+  assert.ok(!c.calls.some((q) => q.op === "update"), "keine Aktivierung");
+}));
+
+test("saveTask neu für alle: direkt aktiv; Bearbeiten ändert keine Historie (nur tasks-Update)", async () => {
+  const c = crudStub();
+  await M.saveTask(c, { familyId: "f", task: { title: "A", points: 1, recurrence: "daily", assignedTo: [] } });
+  assert.equal(c.calls.find((q) => q.op === "insert").payload.active, true);
+  const e = crudStub();
+  await M.saveTask(e, { familyId: "f", task: { id: "t-new", title: "A", points: 99, recurrence: "daily", assignedTo: [] } });
+  assert.ok(e.calls.every((q) => q.table !== "completions"), "Erledigungen werden nie angefasst");
+});
+
+test("remove*/deleteCategory: Modus und Meldungen", async () => {
+  const r1 = await M.removeTask(stub(() => ({ data: { ok: true, mode: "archived" }, error: null })), { familyId: "f", taskId: "t" });
+  assert.match(r1.message, /archiviert/);
+  const r2 = await M.removeProfile(stub(() => ({ data: { ok: false, reason: "last_active" }, error: null })), { familyId: "f", profileId: "p" });
+  assert.equal(r2.message, "Mindestens ein Kinderprofil muss aktiv bleiben.");
+  const r3 = await M.deleteCategory(stub(() => ({ data: { ok: false, reason: "has_tasks", count: 2 }, error: null })), { familyId: "f", categoryId: "c" });
+  assert.match(r3.message, /2 aktive Aufgaben/);
+});
+
+test("DB-Schutz-Trigger (Hint) → deutsche Meldung", quiet(async () => {
+  assert.equal(M.toMutationError({ code: "P0001", hint: "last_active_profile", message: "x" }, "a").message, "Mindestens ein Kinderprofil muss aktiv bleiben.");
+  assert.match(M.toMutationError({ code: "P0001", hint: "category_has_tasks" }, "a").message, /aktive Aufgaben/);
+  assert.equal(M.toMutationError({ code: "23505" }, "a", M.MESSAGES.categoryDuplicate).message, "Eine Kategorie mit diesem Namen gibt es schon.");
+}));
+
+test("Korrektur/Wieder-Bestätigen/Quittieren: richtige Filter, Server stempelt", async () => {
+  const c = stub((q) => ({ data: [{ id: "x", status: q.payload?.status }], error: null }));
+  await M.correctCompletion(c, { familyId: "f", completionId: "x" });
+  assert.deepEqual(c.calls[0].payload, { status: "rejected" });
+  assert.ok(c.calls[0].filters.some((f) => f[1] === "status" && f[2] === "confirmed"));
+  await M.reconfirmCompletion(c, { familyId: "f", completionId: "x" });
+  assert.ok(c.calls[1].filters.some((f) => f[1] === "status" && f[2] === "rejected"));
+  const none = stub(() => ({ data: [], error: null }));
+  assert.equal((await M.correctCompletion(none, { familyId: "f", completionId: "x" })).message, M.MESSAGES.notConfirmed);
+  assert.deepEqual(await M.acknowledgeRedemptions(none, { familyId: "f", redemptionIds: [] }), { ok: true, count: 0 });
 });

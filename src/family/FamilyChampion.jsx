@@ -1,4 +1,4 @@
-// FAMILY-Wrapper: Wochen-Champion-Oberfläche mit relationalen Daten (Phase 4C2A: Kernaktionen).
+// FAMILY-Wrapper: Wochen-Champion-Oberfläche mit relationalen Daten (4C2A: Kernaktionen, 4C2B1: Elternverwaltung).
 // Lädt die aktive Familie über src/lib/familyData.js, führt Aktionen ausschließlich über
 // src/lib/familyMutations.js aus und lädt danach neu (keine optimistische UI, kein Realtime).
 // Elternbereich: Auth-Rolle owner/parent UND serverseitig geprüfte PIN (10 Minuten, nur im Speicher).
@@ -74,6 +74,27 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     return r;
   };
 
+  // UI-Modell der gemeinsamen Oberfläche → Mutationsschicht (Namen wie in der bisherigen App)
+  const catId = (name) => (state.model?.data.customCategories || []).find((c) => c.name === name)?.id || null;
+  const SAVE = {
+    task: (t) => M.saveTask(client, { familyId, task: { id: t.id || null, title: t.name, points: Number(t.points), recurrence: t.recurring || "daily", icon: t.emoji, categoryId: catId(t.category), assignedTo: t.assignedTo || [], active: t.active !== false } }),
+    reward: (r) => M.saveReward(client, { familyId, reward: { id: r.id || null, title: r.name, pointsRequired: Number(r.pointsCost), icon: r.emoji, assignedTo: r.assignedTo || [], active: r.active !== false } }),
+    category: (c) => M.saveCategory(client, { familyId, category: { id: c.id || null, name: c.name, icon: c.emoji, assignedTo: c.assignedTo || [] } }),
+    member: (m) => M.saveProfile(client, { familyId, profile: { id: m.id || null, name: m.name, avatarEmoji: m.emoji, color: m.color, active: m.active !== false } }),
+  };
+  const REMOVE = {
+    task: (id) => M.removeTask(client, { familyId, taskId: id }),
+    reward: (id) => M.removeReward(client, { familyId, rewardId: id }),
+    category: (id) => M.deleteCategory(client, { familyId, categoryId: id }),
+    member: (id) => M.removeProfile(client, { familyId, profileId: id }),
+  };
+  const RESTORE = {
+    task: (id) => M.restoreTask(client, { familyId, taskId: id }),
+    reward: (id) => M.restoreReward(client, { familyId, rewardId: id }),
+    member: (id) => M.restoreProfile(client, { familyId, profileId: id }),
+  };
+  const KIND_TABLE = { task: "tasks", reward: "rewards", category: "categories", member: "profiles" };
+
   const actions = {
     completeTask: (task, member) => mutate(() => M.completeTask(client, { familyId, profileId: member.id, taskId: task.id })),
     undoCompletion: (c) => mutate(() => M.undoCompletion(client, { familyId, profileId: c.memberId, taskId: c.taskId, completionDate: c.day || toDateKey(c.date) })),
@@ -82,6 +103,14 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     redeemReward: (reward, member) => mutate(() => M.redeemReward(client, { familyId, profileId: member.id, rewardId: reward.id })),
     updateSettings: (patch) => mutate(() => M.updateFamilySettings(client, { familyId, ...patch }), { admin: true }),
     changePin: (form) => mutate(() => M.changeParentPin(client, { familyId, ...form }), { admin: true }),
+    // Elternverwaltung (4C2B1): alle Aktionen sind Elternaktionen (Rolle + PIN, verlängern den Timeout).
+    save: (kind, item) => mutate(() => SAVE[kind](item), { admin: true }),
+    remove: (kind, id) => mutate(() => REMOVE[kind](id), { admin: true }),
+    restore: (kind, id) => mutate(() => RESTORE[kind](id), { admin: true }),
+    reorder: (kind, ids) => mutate(() => M.reorderItems(client, { familyId, kind: KIND_TABLE[kind], ids }), { admin: true }),
+    correctCompletion: (id) => mutate(() => M.correctCompletion(client, { familyId, completionId: id }), { admin: true }),
+    reconfirmCompletion: (id) => mutate(() => M.reconfirmCompletion(client, { familyId, completionId: id }), { admin: true }),
+    acknowledgeRedemptions: (ids) => mutate(() => M.acknowledgeRedemptions(client, { familyId, redemptionIds: ids.filter(Boolean) }), { admin: true }),
     verifyPin: async (pin) => {
       if (!hasAdminRole(role)) return { ok: false, message: ROLE_MSG };
       const r = await M.verifyParentPin(client, { familyId, pin });

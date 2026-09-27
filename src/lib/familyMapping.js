@@ -10,8 +10,9 @@ const bySort = (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || String(a.n
 const asArray = (v) => (Array.isArray(v) ? v : v ? [v] : []);
 const assignedIds = (rows) => asArray(rows).map((r) => r.profile_id).filter(Boolean);
 
-export function mapProfiles(profiles) {
-  return asArray(profiles).filter((p) => p.active !== false).sort(bySort).map((p) => ({
+// active=true: Hauptansicht; active=false: archivierte Einträge (nur Elternbereich)
+export function mapProfiles(profiles, active = true) {
+  return asArray(profiles).filter((p) => (p.active !== false) === active).sort(bySort).map((p) => ({
     id: p.id,
     name: p.name,
     emoji: p.avatar_emoji || "🙂",
@@ -22,6 +23,7 @@ export function mapProfiles(profiles) {
     // isAdmin wird im FAMILY-Modus NIE gesetzt – der Elternbereich hängt an Auth-Rolle + PIN.
     isAdmin: false,
     isParentPlayer: p.is_parent === true,
+    active: p.active !== false,
   }));
 }
 
@@ -31,8 +33,8 @@ export function mapCategories(categories) {
   }));
 }
 
-export function mapTasks(tasks, categoryById) {
-  return asArray(tasks).filter((t) => t.active !== false).sort(bySort).map((t) => ({
+export function mapTasks(tasks, categoryById, active = true) {
+  return asArray(tasks).filter((t) => (t.active !== false) === active).sort(bySort).map((t) => ({
     id: t.id,
     name: t.title,
     emoji: t.icon || "✅",
@@ -42,18 +44,23 @@ export function mapTasks(tasks, categoryById) {
     category: (t.category_id && categoryById.get(t.category_id)?.name) || "",
     recurring: t.recurrence || "daily",
     assignedTo: assignedIds(t.task_assignments),
+    sortOrder: t.sort_order ?? 0,
+    active: t.active !== false,
   }));
 }
 
-export function mapRewards(rewards) {
-  return asArray(rewards).filter((r) => r.active !== false).sort(bySort).map((r) => ({
+export function mapRewards(rewards, active = true) {
+  return asArray(rewards).filter((r) => (r.active !== false) === active).sort(bySort).map((r) => ({
     id: r.id, name: r.title, emoji: r.icon || "🎁", pointsCost: r.points_required, assignedTo: assignedIds(r.reward_assignments),
+    sortOrder: r.sort_order ?? 0, active: r.active !== false,
   }));
 }
 
-export function mapCompletions(completions, memberById) {
+// rejected=false: Hauptansicht (rejected ausgeblendet); rejected=true: nur abgelehnte/zurückgenommene
+// Einträge für die Eltern-Korrektur (Wieder-Bestätigen).
+export function mapCompletions(completions, memberById, rejected = false) {
   return asArray(completions)
-    .filter((c) => c.status !== "rejected")
+    .filter((c) => (c.status === "rejected") === rejected)
     .sort((a, b) => String(a.completed_at).localeCompare(String(b.completed_at)))
     .map((c) => {
       const m = memberById.get(c.profile_id);
@@ -89,7 +96,7 @@ export function mapRedemptions(redemptions) {
 export function deriveNotifications(redeemedRewards, memberById) {
   return redeemedRewards.filter((r) => !r.acknowledged).map((r) => {
     const m = memberById.get(r.memberId);
-    return { id: `redemption-${r.id}`, type: "reward", message: `${m?.emoji ?? "🙂"} ${m?.name ?? "Profil"} hat "${r.rewardName}" (${r.pointsCost}⭐) eingelöst!`, date: r.date, read: false, memberId: r.memberId };
+    return { id: `redemption-${r.id}`, redemptionId: r.id, type: "reward", message: `${m?.emoji ?? "🙂"} ${m?.name ?? "Profil"} hat "${r.rewardName}" (${r.pointsCost}⭐) eingelöst!`, date: r.date, read: false, memberId: r.memberId };
   });
 }
 
@@ -102,7 +109,9 @@ export function mapChampionHistory(rows) {
 export function mapFamilyToChampionData(raw) {
   const settingsRow = Array.isArray(raw.family_settings) ? raw.family_settings[0] : raw.family_settings;
   const members = mapProfiles(raw.profiles);
-  const memberById = new Map(members.map((m) => [m.id, m]));
+  const archivedMembers = mapProfiles(raw.profiles, false);
+  // Namen/Emojis auch für archivierte Profile (Historie bleibt lesbar)
+  const memberById = new Map([...members, ...archivedMembers].map((m) => [m.id, m]));
   const categories = mapCategories(raw.categories);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const redeemedRewards = mapRedemptions(raw.redemptions);
@@ -125,6 +134,14 @@ export function mapFamilyToChampionData(raw) {
       needsConfirmation: settings.requireConfirmation,
       notifications: deriveNotifications(redeemedRewards, memberById),
       lastChampionWeek: settingsRow?.last_champion_week ?? null,
+      // Nur für den Elternbereich (Phase 4C2B1): archivierte Einträge (active=false) und
+      // abgelehnte/zurückgenommene Erledigungen (Korrektur, Wieder-Bestätigen).
+      archived: {
+        members: archivedMembers,
+        tasks: mapTasks(raw.tasks, categoryById, false),
+        rewards: mapRewards(raw.rewards, false),
+      },
+      rejectedCompletions: mapCompletions(raw.completions, memberById, true),
       // kein adminPin: der FAMILY-Elternbereich nutzt verify_parent_pin (ab Phase 4C2)
     },
   };
