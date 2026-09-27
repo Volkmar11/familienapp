@@ -75,3 +75,31 @@ Danach gibt es zwei Möglichkeiten:
 3. „Confirm email“ im Testprojekt ausschalten.
 4. Entscheiden, ob das leere Projekt „Familienapp“ künftig als Produktionsprojekt für die neue Architektur dienen soll oder gelöscht bzw. pausiert wird. Im Free-Tarif sind 2 aktive Projekte erlaubt.
 5. Danach Phase 4: Auth-Frontend, Onboarding (`create_family`, Profile, Starter-Inhalte) und neue Datenschicht gegen `wochen-champion-test`.
+
+---
+
+## 6. KORREKTUR / NACHTRAG (Stand 27.09.2026, 19:52 Uhr) – Backup erfolgreich
+
+Der Befund „Projekt leer“ war **falsch-negativ**: Die Prüfung erfolgte, während Supabase das Projekt nach „Restore project“ noch wiederherstellte.
+
+- Die Web-App `https://familienapp.vercel.app` nutzt laut ausgeliefertem JS-Bundle **genau** das Projekt `gkkzjmszcjivtaygbmfw` („Familienapp“). Das ist das Produktionsprojekt.
+- Nach Abschluss der Wiederherstellung sind `public.app_state` und `family-main` vorhanden, mit genau 1 Zeile in der Tabelle:
+  - `updated_at` 2026-09-27 17:46:45 UTC (letzter Schreibvorgang durch die Web-App auf einem iPhone)
+  - 5 Mitglieder, 361 Erledigungen, 23 Einträge `championHistory`
+  - `lastChampionWeek` = `2026-09-20`, also das alte UTC-Sonntags-Format; `normalizeWeekKey` ist deshalb bei der Migration nötig
+  - ca. 205 KB JSON
+- **Backup erstellt (nur lesend):** per REST-GET mit dem öffentlichen Publishable Key der Web-App
+  - Datei `local-backups/family-main-20260927-195206.json` (265 KB, Format `{backup_created_at, source_project, source_table, source_id, record:{id,data,updated_at}}`)
+  - gültiges JSON, `id` und `data` vorhanden, Zählwerte stimmen mit der Datenbank überein
+  - Die Datei wurde dem Nutzer übergeben und **nicht committet** (`local-backups/` ist in `.gitignore`)
+- **Produktionsdaten verändert:** NEIN. Die Datenbank wurde nur gelesen: SELECT und REST-GET.
+- **Sicherheitsbefund bestätigt:** `app_state` ist mit dem öffentlichen Publishable Key ohne Anmeldung **lesbar**. RLS ist praktisch offen, wie in Phase 1 vermutet. Jede Person mit dem öffentlichen App-Code kann die Familiendaten lesen und vermutlich auch schreiben. Die neue Architektur behebt das. Bis dahin ist Vorsicht nötig.
+- **Deploy-Stand:** Vercel liefert noch den alten Code aus `main` aus (Stand 22.09.2026, ohne Datenverlust- und Datumsfix aus `feature/appstore-v1`).
+
+### Aktualisierte nächste Schritte
+
+1. Nutzer: das Backup an zwei privaten Orten speichern (Mac + iCloud/USB).
+2. Nutzer: im Testprojekt „Confirm email“ ausschalten.
+3. Empfohlen: den Datenverlust- und Datumsfix aus `feature/appstore-v1` bald produktiv bringen (PR nach `main` bzw. Vercel-Deploy). Der UTC-Fehler betrifft die laufende App weiterhin.
+4. Hinweis: Free-Projekte pausieren nach Inaktivität. Die Web-App sollte regelmäßig genutzt werden, oder das Projekt braucht einen passenden Tarif.
+5. Danach Phase 4: Auth-Frontend, Onboarding und neue Datenschicht gegen `wochen-champion-test`. Die Migration von `family-main` erfolgt später auf Basis dieses Backups, zuerst im Testprojekt.
