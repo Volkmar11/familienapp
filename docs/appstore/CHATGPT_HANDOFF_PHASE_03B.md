@@ -1,60 +1,77 @@
-# CHATGPT HANDOFF – PHASE 3A/3B
+# CHATGPT HANDOFF – PHASE 3B (Stand seit Handoff 3A)
 
-## 1. Ergebnis
+Zeitraum: nach `CHATGPT_HANDOFF_PHASE_03A.md` bis jetzt · Branch `feature/appstore-v1` (auf GitHub)
 
-- Phase 3a (Einrichtung): JA. Ausnahme: Das family-main-Backup ist offen, siehe Abschnitt 6.
-- Phase 3b (Backend-Tests): JA, vollständig erfolgreich
-- Branch: `feature/appstore-v1` (auf GitHub gepusht)
-- Ausgeführt über den Supabase-Connector (MCP) in Claude Code, ohne Secrets im Repository
+## 1. Kurzfassung
 
-## 2. Test-Supabase
+- Der Nutzer hat Claude Code erlaubt, die manuellen Schritte selbst auszuführen. Dafür wurde der **Supabase-Connector (MCP)** in claude.ai verbunden.
+- Das **Testprojekt `wochen-champion-test`** wurde angelegt, die Migration eingespielt und alle Backend-Tests bestanden: **RLS 39/39, Auth/REST/Realtime 16/16**.
+- **Neuer kritischer Befund:** Das einzige Projekt im verbundenen Supabase-Konto („Familienapp“) ist **leer**. Es gibt dort **keine Tabelle `app_state`**. Die produktiven Daten von Wochen Champion liegen also in einem **anderen, noch unbekannten Supabase-Projekt oder -Konto**.
+- Das **Backup von `family-main` fehlt deshalb weiterhin.**
 
-- Testprojekt: `wochen-champion-test`, Referenz `otejitifgcrrwmudrnhs`, eu-central-1 (Frankfurt), Free-Tarif, ACTIVE_HEALTHY, Postgres 17.6
-- Produktionsprojekt: `Familienapp`, Referenz `gkkzjmszcjivtaygbmfw`, eu-west-1, Status **INACTIVE (pausiert)**
-- Client-Key-Typ: Publishable Key (`sb_publishable_…`) vorhanden; Legacy-Anon-Key ebenfalls aktiv
-- Secrets ausgegeben oder committet: NEIN
+## 2. Durchgeführte Arbeitsschritte (chronologisch)
 
-## 3. Migration
+1. **Connector:** Der Supabase-Connector wurde vom Nutzer verbunden. Nach dem Neuladen waren die Supabase-MCP-Werkzeuge in der Sitzung verfügbar.
+2. **Bestandsaufnahme (nur lesend):**
+   - Organisation „Volkmar Familienapp“ (`wpczexcrbwmiqaafmmor`), **Free-Tarif**
+   - Einziges Projekt „Familienapp“ (`gkkzjmszcjivtaygbmfw`, eu-west-1, Postgres 17), Status **INACTIVE (pausiert)**
+3. **Testprojekt angelegt:** `wochen-champion-test`, Referenz `otejitifgcrrwmudrnhs`, eu-central-1 (Frankfurt), Free-Tarif ohne Kosten, Status ACTIVE_HEALTHY.
+4. **Reaktivierung der Produktion per Connector versucht:** Die Sicherheitsprüfung der Claude-Code-Umgebung hat das blockiert. Es wurde nicht umgangen, sondern an den Nutzer übergeben.
+5. **Migration im Testprojekt:**
+   - per `apply_migration` („family_architecture“), Inhalt identisch mit `supabase/migrations/20260927120000_family_architecture.sql`, mit `set app.migration_target = 'test'`, ohne eigenes `begin`/`commit`
+   - Ergebnis: 13/13 Tabellen mit RLS, 47 Policies, 4 Funktionen (`create_family`, `private.is_family_member`, `private.has_family_role`, `private.set_updated_at`), Realtime auf 8 Tabellen, `show_daily_crown` NOT NULL mit Default `true`
+   - `anon` hat keinen Zugriff
+   - SQL-Datei im Repo unverändert, keine SQL-Fehler gefunden
+6. **Supabase-Advisor:** Nur ein Hinweis, nämlich dass `create_family` als SECURITY DEFINER für authenticated aufrufbar ist. Das ist **beabsichtigt** (Bootstrapping der ersten Familie).
+7. **RLS-Matrix per SQL** mit echten Rollen `authenticated`/`anon` und echter `auth.uid()`: **39/39 PASS**. Geprüft wurden:
+   - Familientrennung beim Lesen und Schreiben für Familien, Mitglieder, Profile, Kategorien, Aufgaben, Belohnungen, Completions, Einlösungen und Settings
+   - Selbst-Einschreiben in eine fremde Familie blockiert
+   - Cross-Family-FK blockiert
+   - owner kann nicht selbst austreten, owner darf die eigene Familie löschen
+   - zweite Familie pro Nutzer möglich (bewusst keine DB-Beschränkung)
+   - `create_family` ist atomar und lehnt nicht angemeldete Aufrufe und anon ab
+   - `show_daily_crown` ist für die eigene Familie lesbar und änderbar, für die fremde nicht
+8. **Testkonten:** `wc-test-a@example.com` („Testfamilie A“) und `wc-test-b@example.com` („Testfamilie B“), per SQL angelegt und bestätigt. Die Passwörter wurden lokal zufällig erzeugt, nur als bcrypt-Hash übertragen und nicht gespeichert.
+9. **Netzwerk:** Die Domain des Testprojekts ist aus der Cloud-Umgebung erreichbar.
+10. **Test über die öffentliche Schnittstelle** (supabase-js + Publishable Key): **16/16 PASS**
+    - Login A/B, falsches Passwort abgelehnt
+    - REST-Familientrennung, anon blockiert, `create_family` mit leerem Namen abgelehnt
+    - **Realtime:** A empfängt eigene Änderungen in `profiles`, `tasks`, `completions`, `rewards` und `family_settings` (5/5) und **0** Ereignisse von Familie B
+11. **Wiederholbare Tests ins Repo übernommen** (ohne Secrets):
+    - `supabase/tests/rls_matrix_test.sql`: Testsperre, Wegwerf-Konten, räumt selbst auf. Ein zweiter Lauf ergab 39/39 und 0 Reste.
+    - `tests/supabase/auth-rls-realtime.test.mjs`: liest URL, Key und Passwörter aus Umgebungsvariablen und bricht ohne sie ab. Ein zweiter Lauf ergab 16/16.
+12. **Dokumentation:** `docs/appstore/PHASE_03B_TEST_BACKEND_RESULTS.md`
+13. **Commit und Push:** `6d680d8` „test: validate family backend in supabase test project“. Build erfolgreich, keine Schlüssel in Dateien.
+14. **Nutzer hat das Projekt „Familienapp“ reaktiviert** („Restore project“). Claude Code hat gewartet, bis die API erreichbar war.
+15. **Backup-Versuch, nur lesend:** `select … from public.app_state where id = 'family-main'` ergab den Fehler **„relation public.app_state does not exist“**.
+16. **Nachprüfung, nur lesend:** Im Projekt „Familienapp“ gibt es **keine eigenen Tabellen** in irgendeinem Schema, `app_state` existiert nirgends, `auth.users` hat 0 Einträge. Das Projekt wurde **nie für die Web-App genutzt**.
 
-- Ausgeführt im Testprojekt: JA (`apply_migration` „family_architecture“, mit `set app.migration_target = 'test'`)
-- In Produktion ausgeführt: NEIN
-- Ergebnis:
-  - 13/13 Tabellen mit RLS, 47 Policies
-  - Funktionen `create_family`, `private.is_family_member`, `private.has_family_role` und `private.set_updated_at`
-  - Realtime auf 8 Tabellen
-  - `show_daily_crown` mit Default `true`
-- Änderungen am SQL-Entwurf: KEINE (keine Fehler gefunden)
-- Supabase-Advisor: nur der beabsichtigte Hinweis, dass die SECURITY-DEFINER-Funktion `create_family` für authenticated aufrufbar ist
+## 3. Aktueller Stand
 
-## 4. Tests
+| Punkt | Status |
+| --- | --- |
+| Datumsfix, Datenverlust-Fix, Web-Build | erledigt (Phasen 2–3) |
+| Testprojekt `wochen-champion-test` mit Migration | erledigt, validiert |
+| RLS / create_family / Realtime / show_daily_crown | validiert (39/39, 16/16) |
+| „Confirm email“ im Testprojekt | noch **EIN**; der Connector kann das nicht ändern. Der Nutzer muss es im Dashboard ausschalten (nötig für Registrierungstests in Phase 4). |
+| Produktives Supabase-Projekt der Web-App | **UNBEKANNT**, nicht im verbundenen Konto |
+| Backup `family-main` | **NICHT vorhanden** |
+| Produktionsdaten gelesen oder verändert | NEIN |
+| Projekt „Familienapp“ (`gkkzjmszcjivtaygbmfw`) | leer, jetzt wieder aktiv; keine Änderungen durch Claude |
 
-- **SQL-RLS-Matrix** (`supabase/tests/rls_matrix_test.sql`, echte Rollen `authenticated`/`anon`): **39/39 PASS**. Wiederholbar, räumt selbst auf.
-  - Familientrennung beim Lesen und Schreiben für Profile, Kategorien, Aufgaben, Belohnungen, Completions, Einlösungen, Settings und Mitglieder
-  - Selbst-Einschreiben und Cross-Family-FK blockiert
-  - owner kann nicht selbst austreten, darf die eigene Familie löschen
-  - anon komplett blockiert
-- **create_family:** A und B erhalten verschiedene UUIDs, owner und family_settings werden automatisch angelegt. Nicht angemeldet: abgelehnt. anon: abgelehnt. Ungültiger Name: atomar abgelehnt. Mehrere Familien pro Nutzer sind möglich (bewusst keine DB-Beschränkung).
-- **Öffentliche Schnittstelle** (`tests/supabase/auth-rls-realtime.test.mjs`, supabase-js + Publishable Key): **16/16 PASS**
-  - Login A/B, falsches Passwort abgelehnt
-  - REST-Trennung zwischen den Familien, anon blockiert
-- **Realtime:** A empfängt eigene Änderungen in `profiles`, `tasks`, `completions`, `rewards` und `family_settings` (5/5) und **0** Ereignisse aus Familie B.
-- **show_daily_crown:** Feld vorhanden, Default `true`. Die eigene Familie kann den Wert lesen und ändern, die fremde nicht. In der UI noch NICHT integriert.
-- Testkonten: `wc-test-a@example.com` und `wc-test-b@example.com` (per SQL angelegt; Passwörter nicht gespeichert)
+## 4. Offene Frage an den Nutzer (Blocker)
 
-## 5. Noch offen / Hinweise
+Unter welcher **URL** läuft die Web-App (Vercel-Domain bzw. Home-Bildschirm-Link)? Aus dem öffentlich ausgelieferten JS-Bundle lässt sich die tatsächlich verwendete **Supabase-Projekt-Referenz** (`VITE_SUPABASE_URL`) ablesen. Alternativ steht sie in Vercel unter Project → Settings → Environment Variables.
 
-- „Confirm email“ ist im Testprojekt noch EIN. Der Connector kann das nicht ändern; für Tests der Registrierung in Phase 4 im Dashboard ausschalten.
-- Produktionsprojekt ist pausiert. Die produktive Web-App kann solange keine Daten laden; seit Phase 2 zeigt sie dann einen Fehlerbildschirm und überschreibt nichts.
-- Die Reaktivierung per Connector wurde von der Sicherheitsprüfung der Claude-Code-Umgebung blockiert und muss vom Nutzer im Dashboard erfolgen.
+Danach gibt es zwei Möglichkeiten:
 
-## 6. family-main
+- Das Projekt liegt in einem **anderen Supabase-Konto**: Den Connector mit diesem Konto verbinden bzw. die Organisation freigeben. Oder der Nutzer exportiert `family-main` manuell (SELECT + JSON-Export, siehe `PHASE_03A_MANUAL_SETUP.md`, Abschnitt F).
+- Das Projekt ist **gelöscht oder nicht mehr erreichbar**: Die Web-App hat dann keine Daten mehr. Die Migration von `family-main` entfällt, und die App startet in der neuen Architektur ohne Altdaten.
 
-- Produktionsbackup vorhanden: NEIN (Projekt pausiert)
-- Produktionsdaten gelesen oder verändert: NEIN
+## 5. Empfehlung für die nächsten Schritte
 
-## 7. Empfehlung
-
-1. Nutzer: Im Supabase-Dashboard das Projekt `Familienapp` → „Restore project“.
-2. Danach das Backup von `family-main` nur lesend erstellen, per Claude Code über den Connector oder manuell, und an zwei Orten außerhalb des Repositorys sichern.
-3. Nutzer: im Testprojekt „Confirm email“ ausschalten.
-4. Dann Phase 4: Auth-Frontend (Login/Registrierung), Onboarding (`create_family`, Profile, Starter-Inhalte) und neue Datenschicht gegen das Testprojekt. `app_state`/`family-main` bleibt bis zur späteren, getesteten Migration unberührt.
+1. Die Web-App-URL bzw. die echte Supabase-Referenz klären.
+2. Das Backup von `family-main` aus dem richtigen Projekt ziehen (nur lesend) und an zwei Orten sichern.
+3. „Confirm email“ im Testprojekt ausschalten.
+4. Entscheiden, ob das leere Projekt „Familienapp“ künftig als Produktionsprojekt für die neue Architektur dienen soll oder gelöscht bzw. pausiert wird. Im Free-Tarif sind 2 aktive Projekte erlaubt.
+5. Danach Phase 4: Auth-Frontend, Onboarding (`create_family`, Profile, Starter-Inhalte) und neue Datenschicht gegen `wochen-champion-test`.
