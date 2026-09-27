@@ -113,7 +113,7 @@ function Confetti({show}){
 
 // Elternprofil als Spieler (braucht keine Bestätigung, zählt nicht als Kind in Statistiken).
 // LEGACY: isAdmin im Mitglied. FAMILY: isParentPlayer (profiles.is_parent) – gewährt KEINEN
-// Zugang zum Elternbereich; der hängt im FAMILY-Modus an Auth-Rolle + PIN (adminLockedView in 4C1).
+// Zugang zum Elternbereich; der hängt im FAMILY-Modus an Auth-Rolle + PIN (adminUnlocked vom Wrapper).
 const isParentProfile = (m) => !!(m && (m.isAdmin || m.isParentPlayer));
 
 // ── Visibility helpers ──
@@ -126,13 +126,21 @@ const READ_ONLY_HINT = "Diese Funktion wird gerade vorbereitet.";
 //   update(fn)         Schreibfunktion des Wrappers (fn: prev → next); fehlt sie oder ist readOnly, wird nichts geschrieben
 //   readOnly           keine Schreibaktionen (FAMILY 4C1)
 //   showDailyCrown     Tageskrone anzeigen (FAMILY: family_settings.show_daily_crown; LEGACY: immer an)
-//   adminLockedView    ersetzt den PIN-geschützten Elternbereich (FAMILY 4C1: gesperrt)
+//   actions            FAMILY (ab 4C2A): gezielte Backend-Aktionen statt update(prev → next).
+//                      { completeTask(task, member), undoCompletion(completion), confirmCompletion(id),
+//                        rejectCompletion(id), redeemReward(reward, member), verifyPin(pin),
+//                        updateSettings(patch), changePin({currentPin,newPin,newPin2}) } → Promise<{ok, message?}>
+//                      Der Wrapper lädt nach Erfolg die Daten neu (keine optimistische UI).
+//   settings           FAMILY: { showDailyCrown, requireConfirmation } für die Einstellungs-Schalter
+//   adminUnlocked      FAMILY: Elternbereich entsperrt (Auth-Rolle + PIN, Zustand im Wrapper)
+//   onLockAdmin        FAMILY: Elternbereich sofort wieder sperren
+//   adminInfo          FAMILY: zusätzlicher Inhalt im Elternbereich (Familie, Rolle, Abmelden …)
 //   rewardSuggestions  Vorschläge im Elternbereich (vom Wrapper, keine persönlichen Daten im Shared-Code)
 //   resetData          Daten für „Komplett-Reset“ (nur LEGACY)
 //   checkAdminPin(pin) Legacy-PIN-Prüfung (nur LEGACY; FAMILY nutzt verify_parent_pin ab 4C2)
 //   changeAdminPin(v)  liefert fn: prev → next zum Ändern der Legacy-PIN (nur LEGACY)
 //   notice             { id, text } – einmaliger Hinweis vom Wrapper (z. B. Speicherfehler)
-export default function ChampionApp({ data, update: persistUpdate, readOnly = false, showDailyCrown = true, adminLockedView = null, rewardSuggestions = [], resetData = null, notice = null, checkAdminPin = null, changeAdminPin = null }){
+export default function ChampionApp({ data, update: persistUpdate, readOnly = false, showDailyCrown = true, actions = null, settings = null, adminUnlocked = false, onLockAdmin = null, adminInfo = null, rewardSuggestions = [], resetData = null, notice = null, checkAdminPin = null, changeAdminPin = null }){
   const [screen,setScreen]=useState("home");
   const [active,setActive]=useState(null);
   const [adminMode,setAdminMode]=useState(false);
@@ -151,6 +159,11 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
   const [editCategory,setEditCategory]=useState(null);
   const [showPointsManager,setShowPointsManager]=useState(false);
   const [pointsManagerMember,setPointsManagerMember]=useState(null);
+  // FAMILY: laufende Serveraktion (Buttons sperren, keine Doppelklicks) + Formulare im Elternbereich
+  const fam=!!actions;
+  const [busy,setBusy]=useState(false);
+  const [pinMsg,setPinMsg]=useState("");
+  const [pinForm,setPinForm]=useState({currentPin:"",newPin:"",newPin2:""});
 
   // Weekly champion check
   useEffect(()=>{
@@ -194,6 +207,14 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
   },[readOnly,persistUpdate]);
   useEffect(()=>{ if(notice?.text) flash(notice.text,3500); },[notice?.id]);
   const boom=()=>{setConfetti(true);setTimeout(()=>setConfetti(false),2200);};
+  // FAMILY: Serveraktion ausführen; während sie (inkl. Neuladen) läuft, sind Aktionen gesperrt.
+  const runAction=async(fn)=>{
+    if(busy) return null;
+    setBusy(true);
+    try{ return await fn(); }
+    catch(e){ return {ok:false,message:"Das hat leider nicht geklappt. Bitte versucht es erneut."}; }
+    finally{ setBusy(false); }
+  };
 
   if(!data) return null;
 
@@ -228,9 +249,20 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
 
   const todayCompForTask=(tid,mid)=>data.completions.filter(c=>c.taskId===tid&&c.memberId===mid&&isoDate(c.date)===today());
 
-  const completeTask=(task)=>{
+  const completeTask=async(task)=>{
     if(!active) return;
     if(readOnly){flash(READ_ONLY_HINT);return;}
+    if(fam){
+      if(todayCompForTask(task.id,active.id).length>0){flash("Diese Aufgabe wurde heute bereits erledigt.");return;}
+      const member=active, before=weekPts(member.id);
+      const r=await runAction(()=>actions.completeTask(task,member));
+      if(!r) return;
+      if(!r.ok){flash(r.message);return;}
+      const pend=r.status==="pending";
+      if(!pend){const nw=before+task.points;if((nw>=50&&before<50)||(nw>=100&&before<100)) boom();}
+      flash(`+${task.points} ⭐ ${member.name}!${pend?" (wartet auf Bestätigung)":""}`);
+      return;
+    }
     // DOPPELKLICK-SPERRE: check if already done today
     if(todayCompForTask(task.id,active.id).length>0) return;
     const needsC=data.needsConfirmation&&!isParentProfile(active);
@@ -243,23 +275,44 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     flash(`+${task.points} ⭐ ${active.name}!${needsC?" (wartet auf Bestätigung)":""}`);
   };
 
-  const undoTask=(task)=>{
+  const undoTask=async(task)=>{
     if(!active) return;
     if(readOnly){flash(READ_ONLY_HINT);return;}
     const comp=data.completions.filter(c=>c.taskId===task.id&&c.memberId===active.id&&isoDate(c.date)===today());
     if(comp.length===0) return;
+    if(fam){
+      // Version 1: Kinder nehmen nur offene (pending) Einträge zurück; bestätigte korrigieren Eltern.
+      const open=comp.find(c=>c.needsConfirm&&!c.confirmed);
+      if(!open){flash("Diese Aufgabe wurde schon bestätigt. Nur Eltern können sie korrigieren.");return;}
+      const r=await runAction(()=>actions.undoCompletion(open));
+      if(r) flash(r.ok?"↩️ Rückgängig gemacht":r.message);
+      return;
+    }
     const lastComp=comp[comp.length-1];
     update(prev=>({...prev,completions:prev.completions.filter(c=>c.id!==lastComp.id)}));
     flash("↩️ Rückgängig gemacht");
   };
 
-  const confirmC=(cid)=>{if(readOnly){flash(READ_ONLY_HINT);return;}update(prev=>({...prev,completions:prev.completions.map(c=>c.id===cid?{...c,confirmed:true,needsConfirm:false}:c)}));flash("✅ Bestätigt!");};
-  const rejectC=(cid)=>{if(readOnly){flash(READ_ONLY_HINT);return;}update(prev=>({...prev,completions:prev.completions.filter(c=>c.id!==cid)}));flash("❌ Abgelehnt");};
+  const reviewC=async(cid,kind)=>{
+    const r=await runAction(()=>kind==="confirm"?actions.confirmCompletion(cid):actions.rejectCompletion(cid));
+    if(r) flash(r.ok?(kind==="confirm"?"✅ Bestätigt!":"❌ Abgelehnt"):r.message);
+  };
+  const confirmC=(cid)=>{if(readOnly){flash(READ_ONLY_HINT);return;}if(fam){reviewC(cid,"confirm");return;}update(prev=>({...prev,completions:prev.completions.map(c=>c.id===cid?{...c,confirmed:true,needsConfirm:false}:c)}));flash("✅ Bestätigt!");};
+  const rejectC=(cid)=>{if(readOnly){flash(READ_ONLY_HINT);return;}if(fam){reviewC(cid,"reject");return;}update(prev=>({...prev,completions:prev.completions.filter(c=>c.id!==cid)}));flash("❌ Abgelehnt");};
 
-  const redeemReward=(reward)=>{
+  const redeemReward=async(reward)=>{
     if(!active) return;
     if(readOnly){flash(READ_ONLY_HINT);return;}
     const a=avail(active.id);
+    if(fam){
+      // Vorprüfung nur für die Anzeige – die Entscheidung trifft der Server (redeem_reward).
+      if(a<reward.pointsCost){const miss=reward.pointsCost-a;flash(`Dafür fehlen noch ${miss} ${miss===1?"Punkt":"Punkte"}.`);return;}
+      const member=active;
+      const r=await runAction(()=>actions.redeemReward(reward,member));
+      if(!r) return;
+      if(r.ok){boom();flash(`🎉 ${reward.name} eingelöst!`);}else flash(r.message);
+      return;
+    }
     if(a<reward.pointsCost){flash(`Nicht genug! (${a}/${reward.pointsCost})`);return;}
     // Add notification for admins
     const notif = {id:uid(),type:"reward",message:`${active.emoji} ${active.name} hat "${reward.name}" (${reward.pointsCost}⭐) eingelöst!`,date:new Date().toISOString(),read:false,memberId:active.id};
@@ -392,7 +445,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
                 </div>
               </button>
               {/* UNDO button */}
-              {myDone&&<button onClick={()=>undoTask(task)} style={{position:"absolute",top:4,right:4,background:"rgba(239,68,68,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",zIndex:5}}>↩️</button>}
+              {myDone&&(!fam||pending)&&<button onClick={()=>undoTask(task)} style={{position:"absolute",top:4,right:4,background:"rgba(239,68,68,0.8)",color:"#fff",border:"none",borderRadius:8,padding:"2px 8px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",zIndex:5}}>↩️</button>}
             </div>;
           })}
         </div>
@@ -423,7 +476,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
       </div>
       {!active?<div style={{...S.card,textAlign:"center",padding:32}}><div style={{fontSize:36,marginBottom:8}}>🏠</div><div style={{color:"#a5b4fc"}}>Wähle zuerst auf Home dein Profil!</div><button onClick={()=>setScreen("home")} style={{...S.btn(),marginTop:12}}>Zur Startseite</button></div>
       :<div style={{padding:"8px 16px"}}>
-        {myRewards.map(r=>{const ok=avail(active.id)>=r.pointsCost;return <button key={r.id} onClick={()=>ok&&redeemReward(r)} style={{display:"flex",alignItems:"center",gap:12,background:ok?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.03)",border:`2px solid ${ok?"#22c55e":"rgba(255,255,255,0.08)"}`,borderRadius:16,padding:"12px 14px",width:"100%",cursor:ok?"pointer":"default",fontFamily:"inherit",fontSize:15,textAlign:"left",marginBottom:8,color:"#fff",opacity:ok?1:0.5}}>
+        {myRewards.map(r=>{const ok=avail(active.id)>=r.pointsCost;return <button key={r.id} onClick={()=>(ok||fam)&&redeemReward(r)} style={{display:"flex",alignItems:"center",gap:12,background:ok?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.03)",border:`2px solid ${ok?"#22c55e":"rgba(255,255,255,0.08)"}`,borderRadius:16,padding:"12px 14px",width:"100%",cursor:ok?"pointer":"default",fontFamily:"inherit",fontSize:15,textAlign:"left",marginBottom:8,color:"#fff",opacity:ok?1:0.5}}>
           <span style={{fontSize:32}}>{r.emoji}</span><div style={{flex:1}}><div style={{fontWeight:700}}>{r.name}</div><div style={{fontSize:12,color:"#a5b4fc"}}>Kosten: {r.pointsCost} ⭐</div></div>
           <div style={S.badge(ok?"#22c55e":"#6366f1")}>{ok?"Einlösen":"🔒"}</div>
         </button>;})}
@@ -607,11 +660,18 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
 
   // ── ADMIN ──
   const renderAdmin=()=>{
-    if(adminLockedView) return <>
+    if(fam&&!adminUnlocked) return <>
       <div style={S.hdr}><div style={{fontSize:24,fontWeight:800}}>⚙️ Eltern-Bereich</div></div>
-      {adminLockedView}
+      <form onSubmit={async e=>{e.preventDefault();const p=pin;setPin("");const r=await runAction(()=>actions.verifyPin(p));if(r&&!r.ok)setPinMsg(r.message);else if(r)setPinMsg("");}} style={{...S.card,textAlign:"center"}} data-testid="pin-gate">
+        <div style={{fontSize:48,marginBottom:12}}>🔒</div>
+        <div style={{marginBottom:16,color:"#a5b4fc"}}>Eltern-PIN eingeben</div>
+        <input type="password" inputMode="numeric" autoComplete="off" aria-label="Eltern-PIN" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4))} style={{...S.inp,textAlign:"center",fontSize:24,letterSpacing:8,marginBottom:12}} placeholder="••••"/>
+        {pinMsg&&<div role="alert" style={{color:"#fca5a5",fontSize:14,marginBottom:10}}>{pinMsg}</div>}
+        <button type="submit" disabled={busy||pin.length!==4} style={{...S.btn(),opacity:busy||pin.length!==4?0.6:1}}>{busy?"Prüfe …":"Entsperren"}</button>
+      </form>
+      {adminInfo}
     </>;
-    if(!adminMode) return <>
+    if(!fam&&!adminMode) return <>
       <div style={S.hdr}><div style={{fontSize:24,fontWeight:800}}>⚙️ Eltern-Bereich</div></div>
       <div style={{...S.card,textAlign:"center"}}>
         <div style={{fontSize:48,marginBottom:12}}>🔒</div>
@@ -629,7 +689,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <div style={{fontSize:24,fontWeight:800}}>⚙️ Verwalten</div>
           <div style={{display:"flex",gap:8}}>
             {unreadNotifs.length>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:99,padding:"4px 10px",fontSize:12,fontWeight:700}}>🔔 {unreadNotifs.length}</span>}
-            <button onClick={()=>setAdminMode(false)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:10,padding:"6px 12px",fontSize:13,fontFamily:"inherit",cursor:"pointer"}}>🔒</button>
+            <button aria-label="Elternbereich sperren" onClick={()=>{if(fam){onLockAdmin&&onLockAdmin();}else setAdminMode(false);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:10,padding:"6px 12px",fontSize:13,fontFamily:"inherit",cursor:"pointer"}}>🔒</button>
           </div>
         </div>
       </div>
@@ -639,9 +699,9 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔔 Benachrichtigungen</div>
         {unreadNotifs.map(n=><div key={n.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe",fontSize:13}}>
           <span style={{flex:1}}>{n.message}</span>
-          <button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(nn=>nn.id===n.id?{...nn,read:true}:nn)}))} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc"}}>✓ Gelesen</button>
+          {!fam&&<button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(nn=>nn.id===n.id?{...nn,read:true}:nn)}))} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc"}}>✓ Gelesen</button>}
         </div>)}
-        <button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(n=>({...n,read:true}))}))} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>Alle als gelesen markieren</button>
+        {!fam&&<button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(n=>({...n,read:true}))}))} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>Alle als gelesen markieren</button>}
       </div>}
 
       {/* Pending confirmations */}
@@ -650,23 +710,25 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         {pendingConfirm.map(c=>{const m=data.members.find(mm=>mm.id===c.memberId);return <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           {m?<Avatar member={m} size={24}/>:<span>{c.memberEmoji}</span>}
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>{m?.name||c.memberName}: {c.taskName}</div><div style={{fontSize:11,color:"#a5b4fc"}}>{fmtDate(c.date)} · +{c.points}⭐</div></div>
-          <button onClick={()=>confirmC(c.id)} style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:10,padding:"6px 12px",fontSize:18,cursor:"pointer"}}>✓</button>
-          <button onClick={()=>rejectC(c.id)} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:10,padding:"6px 12px",fontSize:18,cursor:"pointer"}}>✗</button>
+          <button aria-label={`Bestätigen: ${c.taskName}`} disabled={busy} onClick={()=>confirmC(c.id)} style={{background:"#22c55e",color:"#fff",border:"none",borderRadius:10,padding:"6px 12px",fontSize:18,cursor:"pointer"}}>✓</button>
+          <button aria-label={`Ablehnen: ${c.taskName}`} disabled={busy} onClick={()=>rejectC(c.id)} style={{background:"#ef4444",color:"#fff",border:"none",borderRadius:10,padding:"6px 12px",fontSize:18,cursor:"pointer"}}>✗</button>
         </div>;})}
       </div>}
+
+      {fam&&<div style={{...S.card,fontSize:13,color:"#a5b4fc"}} data-testid="crud-hint">✏️ Aufgaben, Belohnungen, Profile und Kategorien bearbeiten: folgt im nächsten Update. Die Listen unten sind nur zur Ansicht.</div>}
 
       {/* Tasks */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📋 Aufgaben ({data.tasks.length})</div>
-          <button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+          {!fam&&<button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
         {data.tasks.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           {t.photo?<img src={t.photo} style={{width:24,height:24,borderRadius:6,objectFit:"cover"}}/>:<span style={{fontSize:18}}>{t.emoji}</span>}
           <div style={{flex:1,fontSize:13}}>{t.name} {t.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({t.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{t.points}⭐</span>
-          <button onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
-          <button onClick={()=>{update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
+          {!fam&&<button onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {!fam&&<button onClick={()=>{update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
       </div>
 
@@ -675,8 +737,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>🎁 Belohnungen</div>
           <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>setShowRewardSuggestions(!showRewardSuggestions)} style={{background:"rgba(255,255,255,0.1)",color:"#a5b4fc",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💡 Vorschläge</button>
-            <button onClick={()=>setEditReward({id:"",name:"",emoji:"🎉",pointsCost:50,assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+            {!fam&&<button onClick={()=>setShowRewardSuggestions(!showRewardSuggestions)} style={{background:"rgba(255,255,255,0.1)",color:"#a5b4fc",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💡 Vorschläge</button>}
+            {!fam&&<button onClick={()=>setEditReward({id:"",name:"",emoji:"🎉",pointsCost:50,assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
           </div>
         </div>
         {showRewardSuggestions&&<div style={{background:"rgba(251,191,36,0.1)",borderRadius:12,padding:12,marginBottom:12,border:"1px solid rgba(251,191,36,0.2)"}}>
@@ -691,8 +753,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <span style={{fontSize:18}}>{r.emoji}</span>
           <div style={{flex:1,fontSize:13}}>{r.name} {r.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({r.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{r.pointsCost}⭐</span>
-          <button onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
-          <button onClick={()=>{update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
+          {!fam&&<button onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {!fam&&<button onClick={()=>{update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
       </div>
 
@@ -700,11 +762,11 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>👨‍👩‍👧‍👦 Mitglieder</div>
-          <button onClick={()=>setEditMember({id:"",name:"",emoji:"😊",color:"#6366f1",isAdmin:false,photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+          {!fam&&<button onClick={()=>setEditMember({id:"",name:"",emoji:"😊",color:"#6366f1",isAdmin:false,photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
         {data.members.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           <Avatar member={m} size={24}/><div style={{flex:1,fontSize:13}}>{m.name} {m.isAdmin&&<span style={{color:"#6366f1"}}>(Admin)</span>}</div>
-          <button onClick={()=>setEditMember({...m,photo:m.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
+          {!fam&&<button onClick={()=>setEditMember({...m,photo:m.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
         </div>)}
       </div>
 
@@ -712,31 +774,50 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📂 Kategorien</div>
-          <button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+          {!fam&&<button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
         {cats.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           <span style={{fontSize:18}}>{c.emoji}</span>
           <div style={{flex:1,fontSize:13}}>{c.name} {c.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({c.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
-          <button onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
-          <button onClick={()=>{const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
+          {!fam&&<button onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
+          {!fam&&<button onClick={()=>{const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
         </div>)}
       </div>
 
       {/* Settings */}
-      <div style={S.card}>
+      {fam?<div style={S.card} data-testid="family-settings">
+        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🛡️ Einstellungen</div>
+        {[
+          {key:"showDailyCrown",label:"Tageskrone anzeigen",hint:"👑 für das Profil mit den meisten Punkten heute"},
+          {key:"requireConfirmation",label:"Aufgaben bestätigen",hint:"Neue Erledigungen warten auf Eltern-Bestätigung"},
+        ].map(o=>{const on=!!settings?.[o.key];return <div key={o.key} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",color:"#c7d2fe"}}>
+          <div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>{o.label}</div><div style={{fontSize:12,color:"#a5b4fc"}}>{o.hint}</div></div>
+          <button role="switch" aria-checked={on} aria-label={o.label} disabled={busy} onClick={async()=>{const r=await runAction(()=>actions.updateSettings({[o.key]:!on}));if(r)flash(r.ok?"Gespeichert ✓":r.message);}}
+            style={{minWidth:64,padding:"8px 12px",borderRadius:99,border:"none",fontWeight:800,fontFamily:"inherit",fontSize:13,cursor:"pointer",background:on?"#22c55e":"rgba(255,255,255,0.15)",color:"#fff"}}>{on?"AN":"AUS"}</button>
+        </div>;})}
+        <div style={{fontSize:12,color:"#a5b4fc",marginTop:6}}>Änderungen gelten für neue Erledigungen; wartende Einträge bleiben unverändert.</div>
+      </div>
+      :<div style={S.card}>
         <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🛡️ Einstellungen</div>
         <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 0",color:"#c7d2fe"}}>
           <input type="checkbox" checked={data.needsConfirmation} onChange={e=>update(prev=>({...prev,needsConfirmation:e.target.checked}))} style={{width:20,height:20,accentColor:"#fbbf24"}}/>
           <div><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>Eltern-Bestätigung nötig</div><div style={{fontSize:12,color:"#a5b4fc"}}>Kinder-Aufgaben müssen bestätigt werden</div></div>
         </label>
-      </div>
+      </div>}
+
+      {fam&&<form data-testid="pin-change" onSubmit={async e=>{e.preventDefault();const f=pinForm;setPinForm({currentPin:"",newPin:"",newPin2:""});const r=await runAction(()=>actions.changePin(f));if(r)flash(r.ok?"🔐 Eltern-PIN geändert":r.message,3000);}} style={S.card}>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔐 Eltern-PIN ändern</div>
+        {[["currentPin","Aktuelle PIN"],["newPin","Neue PIN"],["newPin2","Neue PIN wiederholen"]].map(([k,l])=><input key={k} type="password" inputMode="numeric" autoComplete="off" aria-label={l} placeholder={l} maxLength={4} value={pinForm[k]}
+          onChange={e=>setPinForm(f=>({...f,[k]:e.target.value.replace(/[^0-9]/g,"").slice(0,4)}))} style={{...S.inp,marginBottom:8}}/>)}
+        <button type="submit" disabled={busy} style={S.btn()}>PIN speichern</button>
+      </form>}
 
       {changeAdminPin&&<div style={S.card}>
         <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔐 PIN ändern</div>
         <input type="text" inputMode="numeric" maxLength={6} placeholder="Neue PIN (mind. 4 Zeichen)" onChange={e=>{const v=e.target.value;if(v.length>=4){update(changeAdminPin(v));flash("PIN geändert!");}}} style={S.inp}/>
       </div>}
 
-      <div style={S.card}>
+      {!fam&&<div style={S.card}>
         <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>🗑️ Daten-Verwaltung</div>
         <button onClick={()=>setShowPointsManager(true)} style={{...S.btn("#4338ca","#fff"),marginBottom:8}}>⭐ Punkte verwalten / korrigieren</button>
         <button onClick={()=>{if(confirm("Alle Wochenpunkte der Kinder zurücksetzen? Gesamtpunkte, Aufgaben, Belohnungen und Profile bleiben erhalten."))
@@ -751,7 +832,8 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <button onClick={()=>{if(confirm("ALLE Daten komplett zurücksetzen? Aufgaben, Belohnungen, Mitglieder, Profile – alles wird gelöscht und auf Standard gesetzt!"))
           {if(resetData){update(()=>({...resetData}));setActive(null);flash("Alles zurückgesetzt!");}}
         }} style={S.btn("#991b1b","#fff")}>💥 Komplett-Reset (alles löschen)</button>
-      </div>
+      </div>}
+      {fam&&adminInfo}
     </>;
   };
 

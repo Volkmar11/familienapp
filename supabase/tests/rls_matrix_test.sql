@@ -4,7 +4,8 @@
 -- Legt zwei temporäre Auth-Benutzer (zufällige @example.com-Adressen) samt
 -- Testfamilien an, prüft die Rechte aus Sicht von A, B, „ohne Benutzer“ und
 -- anon, räumt anschließend alles wieder auf und gibt PASS/FAIL je Prüfung aus.
--- Voraussetzung: Migration 20260927120000_family_architecture.sql ist angewendet.
+-- Voraussetzung: Migrationen 20260927120000_family_architecture.sql, 20260927200000_family_onboarding.sql
+-- und 20260928100000_core_mutations.sql sind angewendet.
 -- =====================================================================
 set app.migration_target = 'test';   -- bewusste Freigabe, siehe Sperre unten
 
@@ -42,8 +43,11 @@ begin
   insert into public.tasks (family_id, category_id, title, points) values (fa, ca, 'Aufgabe A', 10) returning id into ta;
   insert into public.rewards (family_id, title, points_required) values (fa, 'Belohnung A', 50) returning id into ra;
   insert into public.completions (family_id, profile_id, task_id, task_title, points, completion_date) values (fa, pa, ta, 'Aufgabe A', 10, current_date);
-  insert into public.redemptions (family_id, profile_id, reward_id, reward_title, points_spent) values (fa, pa, ra, 'Belohnung A', 50);
-  insert into t_results(test,pass,detail) values ('A: Profil/Kategorie/Aufgabe/Belohnung/Completion/Einlösung anlegen', true, '');
+  insert into t_results(test,pass,detail) values ('A: Profil/Kategorie/Aufgabe/Belohnung/Completion anlegen', true, '');
+  -- Seit Migration 20260928100000_core_mutations: Einlösen nur über redeem_reward() (kein direkter INSERT)
+  begin insert into public.redemptions (family_id, profile_id, reward_id, reward_title, points_spent) values (fa, pa, ra, 'Belohnung A', 50); ok := false; msg := 'kein Fehler';
+  exception when others then ok := true; msg := sqlerrm; end;
+  insert into t_results(test,pass,detail) values ('A: direkte Einlösung per INSERT blockiert', ok, msg);
   update public.tasks set points = 15 where id = ta; get diagnostics n = row_count;
   insert into t_results(test,pass,detail) values ('A: eigene Aufgabe ändern', n = 1, n::text);
   update public.family_settings set show_daily_crown = false where family_id = fa; get diagnostics n = row_count;

@@ -209,15 +209,17 @@ test("FAMILY-Import-Graph: gemeinsame UI ja, Legacy-Wrapper/-Defaults nein", () 
   for (const f of files) assert.doesNotMatch(stripComments(fs.readFileSync(path.join(ROOT, f), "utf8")), /adminPin|REWARD_SUGGESTIONS|resetData=\{/, `Legacy-PIN/-Daten in ${f}`);
 });
 
-test("Datenadapter und FAMILY-Wrapper schreiben nicht (keine insert/update/upsert/delete/rpc)", () => {
+test("Schreibzugriffe nur in familyMutations.js; Laden/Mapping/UI/Wrapper schreiben nicht direkt", () => {
   for (const f of ["src/lib/familyData.js", "src/lib/familyMapping.js", "src/family/FamilyChampion.jsx", "src/shared/ChampionApp.jsx", "src/shared/points.js"]) {
     const src = stripComments(fs.readFileSync(path.join(ROOT, f), "utf8"));
     assert.doesNotMatch(src, /\.(insert|upsert|delete|rpc)\(|\.update\(\s*\{|\.channel\(/, f);
   }
 });
 
-test("FamilyChampion übergibt readOnly und die Tageskrone-Einstellung an die UI", () => {
+test("FamilyChampion nutzt gezielte Aktionen (kein update(prev→next), kein readOnly)", () => {
   const src = fs.readFileSync(path.join(ROOT, "src/family/FamilyChampion.jsx"), "utf8");
-  assert.match(src, /<ChampionApp[\s\S]*\breadOnly\b[\s\S]*showDailyCrown=\{model\.settings\.showDailyCrown\}/);
+  assert.match(src, /<ChampionApp[\s\S]*actions=\{actions\}[\s\S]*/);
+  assert.match(src, /showDailyCrown=\{model\.settings\.showDailyCrown\}/);
   assert.doesNotMatch(src, /\bupdate=\{/);
+  assert.doesNotMatch(src, /\breadOnly\b/);
 });

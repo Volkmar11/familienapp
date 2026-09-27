@@ -73,7 +73,10 @@ must(await A.c.from("completions").insert([
   { family_id: f1, profile_id: P.Sam, task_id: t0.id, task_title: t0.title, points: 10, completed_at: ago(3), completion_date: today, status: "rejected" },
   { family_id: f1, profile_id: P.Kim, task_id: t0.id, task_title: t0.title, points: 30, completed_at: old.toISOString(), completion_date: toDateKey(old), status: "confirmed" },
 ]), "completions");
-must(await A.c.from("redemptions").insert({ family_id: f1, profile_id: P.Kim, reward_id: rewards[0].id, reward_title: rewards[0].title, points_spent: 20 }), "redemptions");
+// Einlösen nur über die RPC (seit Phase 4C2A kein direkter INSERT mehr): Kosten 20 für den Testaufbau
+must(await A.c.from("rewards").update({ points_required: 20 }).eq("id", rewards[0].id), "reward");
+const red = must(await A.c.rpc("redeem_reward", { p_family_id: f1, p_profile_id: P.Kim, p_reward_id: rewards[0].id }), "redeem_reward");
+if (!red.ok) throw new Error("redeem_reward: " + JSON.stringify(red));
 must(await A.c.from("champion_history").insert({ family_id: f1, profile_id: P.Sam, profile_name: "Sam", profile_avatar: "🐼", week_start: addDays(weekStartKey(now), -14), points: 70 }), "champion_history");
 must(await A.c.from("task_assignments").insert({ family_id: f1, task_id: t1.id, profile_id: P.Sam }), "task_assignments");
 
