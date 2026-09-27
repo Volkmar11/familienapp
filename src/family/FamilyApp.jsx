@@ -1,10 +1,12 @@
 // Einstieg im FAMILY-Modus: Session prüfen → Anmeldung → Familienmitgliedschaft.
-// Phase 4A: noch keine Familie anlegen, kein Onboarding, keine Familien-App.
+// Ohne Familie → Onboarding (Phase 4B). Mit Familie → Zwischen-Startseite (volle App: Phase 4C).
 import { useEffect, useState, useCallback } from "react";
 import { getSession, onAuthStateChange, signOut, updatePassword, MIN_PASSWORD_LENGTH } from "../lib/auth.js";
 import { getFamilyClient } from "../lib/supabaseFamily.js";
 import { fetchMemberships, classifyMemberships } from "../lib/familyMembership.js";
 import AuthScreen from "./AuthScreen.jsx";
+import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
+import FamilyHome from "./FamilyHome.jsx";
 import { S, C, Shell, Header, Spinner, Message } from "./ui.jsx";
 
 const roleLabel = (r) => (r === "owner" ? "Inhaber:in (owner)" : r === "parent" ? "Elternteil (parent)" : r);
@@ -15,6 +17,7 @@ export default function FamilyApp() {
   const [recovery, setRecovery] = useState(false);
   const [membership, setMembership] = useState({ status: "idle", list: [], error: "" }); // idle|loading|ready|error
   const [activeFamilyId, setActiveFamilyId] = useState(null);
+  const [onboarding, setOnboarding] = useState(null); // { familyId|null } solange der Assistent inkl. Erfolgsseite sichtbar ist
   const userId = session?.user?.id ?? null;
 
   // 1) Session beim Start wiederherstellen + Auth-Änderungen verfolgen.
@@ -32,18 +35,19 @@ export default function FamilyApp() {
   }, []);
 
   // 2) Mitgliedschaften laden, sobald ein Nutzer angemeldet ist.
-  const loadMemberships = useCallback(async () => {
+  const loadMemberships = useCallback(async ({ silent = false, preferFamilyId = null } = {}) => {
     if (!userId) return;
-    setMembership({ status: "loading", list: [], error: "" });
+    if (!silent) setMembership({ status: "loading", list: [], error: "" });
     const r = await fetchMemberships(getFamilyClient(), userId);
     if (!r.ok) { setMembership({ status: "error", list: [], error: "Deine Familiendaten konnten nicht geladen werden." }); return; }
     setMembership({ status: "ready", list: r.memberships, error: "" });
-    setActiveFamilyId(r.memberships.length === 1 ? r.memberships[0].familyId : null);
+    const preferred = preferFamilyId && r.memberships.some((m) => m.familyId === preferFamilyId) ? preferFamilyId : null;
+    setActiveFamilyId(preferred ?? (r.memberships.length === 1 ? r.memberships[0].familyId : null));
   }, [userId]);
 
   useEffect(() => {
     if (userId) loadMemberships();
-    else { setMembership({ status: "idle", list: [], error: "" }); setActiveFamilyId(null); }
+    else { setMembership({ status: "idle", list: [], error: "" }); setActiveFamilyId(null); setOnboarding(null); }
   }, [userId, loadMemberships]);
 
   if (!authReady) return <Shell><Spinner label="Anmeldung wird geprüft …" /></Shell>;
@@ -51,26 +55,32 @@ export default function FamilyApp() {
   if (!session) return <AuthScreen />;
 
   const email = session.user?.email ?? "";
+  const wizard = (
+    <OnboardingWizard
+      onCreated={(familyId) => { setOnboarding({ familyId }); loadMemberships({ silent: true, preferFamilyId: familyId }); }}
+      onFinish={(familyId) => {
+        setOnboarding(null);
+        // Falls das stille Neuladen noch nicht fertig ist: gezielt nachladen statt den Assistenten neu zu starten.
+        if (membership.list.some((m) => m.familyId === familyId)) setActiveFamilyId(familyId);
+        else loadMemberships({ preferFamilyId: familyId });
+      }}
+      onLogout={() => signOut()}
+    />
+  );
+  // Assistent bleibt inkl. Erfolgsseite sichtbar, auch während Mitgliedschaften neu geladen werden.
+  if (onboarding) return wizard;
   if (membership.status === "idle" || membership.status === "loading") return <Shell><Spinner label="Familie wird geladen …" /></Shell>;
   if (membership.status === "error") {
     return (
       <Screen email={email} title="Verbindungsproblem">
         <Message kind="error">{membership.error}</Message>
-        <button style={S.btn()} onClick={loadMemberships}>Erneut versuchen</button>
+        <button style={S.btn()} onClick={() => loadMemberships()}>Erneut versuchen</button>
       </Screen>
     );
   }
 
   const kind = classifyMemberships(membership.list);
-  if (kind === "none") {
-    return (
-      <Screen email={email} title="Willkommen bei Wochen Champion" emoji="👋">
-        <p style={{ color: C.muted, fontSize: 15, lineHeight: 1.5, margin: "8px 0 0" }}>Deine Familie wird im nächsten Schritt eingerichtet.</p>
-        <button style={S.btn()} disabled title="Folgt in Phase 4B">Familie einrichten</button>
-        <div style={{ fontSize: 12, color: C.muted, marginTop: 8, textAlign: "center" }}>Die Einrichtung wird gerade vorbereitet.</div>
-      </Screen>
-    );
-  }
+  if (kind === "none") return wizard;
 
   const activeFamily = membership.list.find((m) => m.familyId === activeFamilyId);
   if (!activeFamily) {
@@ -87,12 +97,8 @@ export default function FamilyApp() {
   }
 
   return (
-    <Screen email={email} title="Familie gefunden" emoji="🏆">
-      <div style={{ marginTop: 8, fontSize: 15, lineHeight: 1.7 }}>
-        <div><span style={{ color: C.muted }}>Familie:</span> <b>{activeFamily.familyName || "–"}</b></div>
-        <div><span style={{ color: C.muted }}>Deine Rolle:</span> <b>{roleLabel(activeFamily.role)}</b></div>
-      </div>
-      <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>Übergangsansicht – die neue Familien-App folgt in einer späteren Phase.</div>
+    <Screen email={email}>
+      <FamilyHome familyId={activeFamily.familyId} role={activeFamily.role} />
       {membership.list.length > 1 && <button style={S.link} onClick={() => setActiveFamilyId(null)}>Andere Familie wählen</button>}
     </Screen>
   );
@@ -109,10 +115,12 @@ function Screen({ email, title, emoji, children }) {
   return (
     <Shell>
       <Header subtitle={email ? `Angemeldet als ${email}` : undefined} />
-      <div style={S.card}>
-        <div style={{ fontSize: 22, fontWeight: 800 }}>{emoji && <span aria-hidden="true">{emoji} </span>}{title}</div>
-        {children}
-      </div>
+      {title ? (
+        <div style={S.card}>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>{emoji && <span aria-hidden="true">{emoji} </span>}{title}</div>
+          {children}
+        </div>
+      ) : children}
       <Message kind="error">{error}</Message>
       <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={logout} disabled={busy}>{busy ? "Abmelden …" : "Abmelden"}</button>
     </Shell>
