@@ -116,6 +116,6 @@ Auffälligkeiten: keine. Hinweis: In Node 22 wird `NODE_USE_ENV_PROXY=1` benöti
 ## 9. Voraussetzungen für Phase 4
 
 - [x] Testprojekt mit Migration, RLS, Realtime und `create_family`, **validiert**
-- [ ] Produktionsprojekt reaktivieren und das Backup von `family-main` erstellen
-- [ ] „Confirm email“ im Testprojekt ausschalten, nötig für die Registrierung über die App im Test
+- [x] Produktionsprojekt reaktiviert und Backup von `family-main` erstellt (27.09.2026, 19:52)
+- [x] „Confirm email“ im Testprojekt ausgeschaltet
 - [ ] Optional: in der Claude-Code-Umgebung `SUPABASE_TEST_URL` und `SUPABASE_TEST_PUBLISHABLE_KEY` hinterlegen, damit neue Sitzungen ohne Connector testen können
