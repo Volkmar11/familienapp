@@ -1,0 +1,27 @@
+# Abhängigkeiten
+node_modules/
+
+# Build-Ausgabe (Vite)
+dist/
+coverage/
+
+# Umgebungsvariablen – niemals committen
+.env
+.env.*
+!.env.example
+*.local
+
+# Lokale Datensicherungen (z. B. Supabase-Export von family-main)
+local-backups/
+
+# Temporäre Vite-Dateien
+vite.config.*.timestamp-*
+
+# Lokale Vercel-Verknüpfung
+.vercel/
+
+# Betriebssystem
+.DS_Store
+
+# Hinweis: Ein künftiger ios/-Ordner (Capacitor) wird bewusst NICHT pauschal
+# ignoriert, da Teile des Xcode-Projekts versioniert werden müssen.
