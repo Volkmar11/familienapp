@@ -1,12 +1,12 @@
 // Einstieg im FAMILY-Modus: Session prüfen → Anmeldung → Familienmitgliedschaft.
-// Ohne Familie → Onboarding (Phase 4B). Mit Familie → Zwischen-Startseite (volle App: Phase 4C).
+// Ohne Familie → Onboarding (Phase 4B). Mit Familie → Wochen-Champion-Oberfläche (Phase 4C1: read-only).
 import { useEffect, useState, useCallback } from "react";
 import { getSession, onAuthStateChange, signOut, updatePassword, MIN_PASSWORD_LENGTH } from "../lib/auth.js";
 import { getFamilyClient } from "../lib/supabaseFamily.js";
 import { fetchMemberships, classifyMemberships } from "../lib/familyMembership.js";
 import AuthScreen from "./AuthScreen.jsx";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
-import FamilyHome from "./FamilyHome.jsx";
+import FamilyChampion from "./FamilyChampion.jsx";
 import { S, C, Shell, Header, Spinner, Message } from "./ui.jsx";
 
 const roleLabel = (r) => (r === "owner" ? "Inhaber:in (owner)" : r === "parent" ? "Elternteil (parent)" : r);
@@ -96,11 +96,17 @@ export default function FamilyApp() {
     );
   }
 
+  // key: Beim Familienwechsel wird der gesamte Zustand (Daten, Ansicht, Auswahl) verworfen und neu geladen.
   return (
-    <Screen email={email}>
-      <FamilyHome familyId={activeFamily.familyId} role={activeFamily.role} />
-      {membership.list.length > 1 && <button style={S.link} onClick={() => setActiveFamilyId(null)}>Andere Familie wählen</button>}
-    </Screen>
+    <FamilyChampion
+      key={activeFamily.familyId}
+      familyId={activeFamily.familyId}
+      role={activeFamily.role}
+      email={email}
+      canSwitchFamily={membership.list.length > 1}
+      onSwitchFamily={() => setActiveFamilyId(null)}
+      onLogout={() => signOut()}
+    />
   );
 }
 
