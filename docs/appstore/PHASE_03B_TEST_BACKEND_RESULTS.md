@@ -41,7 +41,7 @@ Die Projekt-Referenzen sind keine Geheimnisse. Schlüssel und Passwörter stehen
 - Im Testprojekt gibt es `wc-test-a@example.com` (User A, „Testfamilie A“) und `wc-test-b@example.com` (User B, „Testfamilie B“), beide bestätigt und mit E-Mail-Identität.
 - Angelegt wurden sie direkt per SQL. So war kein echter Mailversand nötig und auch keine Änderung an der Einstellung „Confirm email“.
 - Die Passwörter wurden zufällig und nur lokal erzeugt, als bcrypt-Hash übertragen und **nirgends gespeichert**. Für spätere Tests setzt man neue Passwörter auf demselben Weg, also mit einem lokal erzeugten bcrypt-Hash und `update auth.users set encrypted_password = …`.
-- „Confirm email“ ist im Testprojekt noch **eingeschaltet** (Supabase-Standard). Der Connector kann diese Einstellung nicht ändern. Für die Tests war das unerheblich; für eine Registrierung über die App in Phase 4 muss sie im Dashboard ausgeschaltet werden.
+- „Confirm email“ ist im Testprojekt inzwischen **ausgeschaltet** (vom Nutzer am 27.09.2026; per signUp-Test bestätigt).
 
 ## 4. create_family
 
