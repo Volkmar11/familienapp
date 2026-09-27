@@ -4,8 +4,28 @@ import { createClient } from "@supabase/supabase-js";
 // ─── SUPABASE ───
 const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
 const ROW_ID = "family-main";
-const save = async (data) => { try { await supabase.from("app_state").upsert({ id: ROW_ID, data, updated_at: new Date().toISOString() }); } catch (e) { console.error(e); } };
-const load = async () => { try { const { data: row } = await supabase.from("app_state").select("data").eq("id", ROW_ID).single(); return row?.data || null; } catch { return null; } };
+// Speichern ist erst erlaubt, wenn der erste Ladevorgang sicher abgeschlossen ist
+// (Datensatz geladen oder nachweislich nicht vorhanden). Nach einem Ladefehler
+// bleibt es gesperrt, damit Standarddaten nie echte Daten überschreiben.
+const persist = { ready: false, onError: null };
+const save = async (data) => {
+  if (!persist.ready) { console.error("[save] blockiert: Daten wurden nicht erfolgreich geladen"); return false; }
+  try {
+    const { error } = await supabase.from("app_state").upsert({ id: ROW_ID, data, updated_at: new Date().toISOString() });
+    if (error) throw error;
+    return true;
+  } catch (e) { console.error("[save] fehlgeschlagen", e); persist.onError?.(e); return false; }
+};
+// Liefert { status: "loaded", data } | { status: "empty" } | { status: "error", error }
+const load = async () => {
+  try {
+    const { data: row, error } = await supabase.from("app_state").select("data").eq("id", ROW_ID).maybeSingle();
+    if (error) throw error;
+    if (!row) return { status: "empty" };
+    if (!row.data || typeof row.data !== "object") throw new Error("Datensatz ohne gültige Daten");
+    return { status: "loaded", data: row.data };
+  } catch (e) { console.error("[load] fehlgeschlagen", e); return { status: "error", error: e }; }
+};
 
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36);
 const isoDate = (d) => new Date(d).toISOString().slice(0,10);
@@ -177,7 +197,7 @@ const isVisibleTo = (item, memberId) => !item.assignedTo || item.assignedTo.leng
 
 export default function App(){
   const [data,setData]=useState(null);
-  const [loading,setLoading]=useState(true);
+  const [loadState,setLoadState]=useState("loading"); // loading | loaded | error
   const [screen,setScreen]=useState("home");
   const [active,setActive]=useState(null);
   const [adminMode,setAdminMode]=useState(false);
@@ -197,12 +217,27 @@ export default function App(){
   const [showPointsManager,setShowPointsManager]=useState(false);
   const [pointsManagerMember,setPointsManagerMember]=useState(null);
 
-  useEffect(()=>{(async()=>{const s=await load();setData(s||{...DEFAULT_DATA});setLoading(false);})();},[]);
+  const init=useCallback(async()=>{
+    persist.ready=false;
+    setLoadState("loading");
+    const r=await load();
+    if(r.status==="error"){setLoadState("error");return;}
+    // Nur wenn wirklich noch kein Datensatz existiert, mit Standarddaten starten
+    setData(r.status==="loaded"?r.data:{...DEFAULT_DATA});
+    persist.ready=true;
+    setLoadState("loaded");
+  },[]);
+
+  useEffect(()=>{
+    persist.onError=()=>{setToast("⚠️ Speichern fehlgeschlagen – bitte Verbindung prüfen");setTimeout(()=>setToast(null),3500);};
+    init();
+    return ()=>{persist.onError=null;};
+  },[init]);
 
   useEffect(()=>{
     const channel = supabase.channel("app_state_changes")
       .on("postgres_changes",{event:"*",schema:"public",table:"app_state",filter:`id=eq.${ROW_ID}`},
-        (payload)=>{if(payload.new?.data)setData(payload.new.data);}
+        (payload)=>{if(persist.ready&&payload.new?.data)setData(payload.new.data);}
       ).subscribe();
     return ()=>{supabase.removeChannel(channel);};
   },[]);
@@ -246,7 +281,14 @@ export default function App(){
   const flash=(msg)=>{setToast(msg);setTimeout(()=>setToast(null),2200);};
   const boom=()=>{setConfetti(true);setTimeout(()=>setConfetti(false),2200);};
 
-  if(loading||!data) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#1e1b4b",fontFamily:"'Fredoka',sans-serif"}}><div style={{fontSize:52,animation:"spin 1s linear infinite"}}>🏆</div></div>;
+  if(loadState==="error") return <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16,height:"100vh",padding:24,textAlign:"center",background:"#1e1b4b",color:"#fff",fontFamily:"'Fredoka',sans-serif"}}>
+    <div style={{fontSize:52}}>⚠️</div>
+    <div style={{fontSize:20,fontWeight:800}}>Daten konnten nicht geladen werden</div>
+    <div style={{fontSize:14,color:"#a5b4fc",maxWidth:320}}>Bitte Internetverbindung prüfen. Es wurde nichts gespeichert – deine Daten bleiben unverändert.</div>
+    <button onClick={init} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:14,padding:"12px 24px",fontSize:16,fontWeight:700,fontFamily:"inherit",cursor:"pointer"}}>Erneut versuchen</button>
+  </div>;
+
+  if(loadState!=="loaded"||!data) return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",background:"#1e1b4b",fontFamily:"'Fredoka',sans-serif"}}><div style={{fontSize:52,animation:"spin 1s linear infinite"}}>🏆</div></div>;
 
   const ws=weekStart(), ms=monthStart();
   const weekC=data.completions.filter(c=>new Date(c.date)>=ws);
