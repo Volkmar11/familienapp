@@ -9,6 +9,9 @@
 //   --verify      FAMILY-Daten über loadFamilyData laden und mit der Referenz vergleichen (+ Counts).
 //   --sync-test   sync_weekly_champion zweimal aufrufen und Historie/Marker prüfen.
 // Optionen: --backup <datei> (Standard: neuestes local-backups/family-main-*.json)
+//           --include-media  (Phase 5B, nur mit --apply/--dry-run) Legacy-Base64-Bilder dekodieren, prüfen,
+//                            Metadaten entfernen und in den privaten Bucket family-media laden
+//                            (profiles.photo_path / tasks.image_path). Ohne Option: Verhalten wie Phase 5A.
 //
 // Umgebung (Secrets nur hier, nie in Dateien des Repos):
 //   MIGRATION_TARGET_URL, MIGRATION_TARGET_PUBLISHABLE_KEY, MIGRATION_TARGET_PROJECT_NAME (muss „test“ enthalten)
@@ -23,6 +26,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   buildMigrationPlan, analyzeLegacy, expectedCounts, computeReference, compareWithReference, MIGRATION_FAMILY_NAME, METRIC_KEYS,
 } from "./lib/legacyMigration.mjs";
+import { planMediaImports } from "./lib/legacyMedia.mjs";
+import * as Media from "../src/lib/familyMedia.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const BACKUP_DIR = path.join(ROOT, "local-backups");
@@ -89,6 +94,8 @@ export async function main(argv = process.argv.slice(2), env = process.env, deps
   const backup = readBackup(backupFile);
   const now = deps.now || new Date();
   const plan = buildMigrationPlan(backup.data, { now });
+  const includeMedia = argv.includes("--include-media");
+  const media = includeMedia ? planMediaImports(backup.data, plan) : null;
 
   log(`Quelle: ${backup.file} | updated_at ${backup.updatedAt} | ${backup.bytes} Bytes | SHA-256 ${backup.sha256}`);
   const stats = analyzeLegacy(backup.data);
@@ -97,6 +104,10 @@ export async function main(argv = process.argv.slice(2), env = process.env, deps
   log("Champion:", JSON.stringify({ lastChampionWeek: plan.settings.last_champion_week, source: plan.champion.source, normalizedMarker: plan.champion.normalizedMarker, maxHistoryWeek: plan.champion.maxHistoryWeek, kept: plan.champion.historyKept, dropped: plan.champion.historyDropped }));
   log("Benachrichtigungen:", JSON.stringify(plan.notifications));
   log("Fotos (nicht migriert):", JSON.stringify(plan.photos));
+  if (media) {
+    log("Medien (--include-media):", JSON.stringify({ ...media.stats, importierbar: media.items.length }));
+    media.skipped.forEach((w) => log("Medien übersprungen:", w));
+  }
   plan.warnings.forEach((w) => log("Hinweis:", w));
   if (plan.errors.length) { plan.errors.forEach((e) => log("FEHLER:", e)); throw new Error(`${plan.errors.length} Validierungsfehler – Abbruch.`); }
 
@@ -117,7 +128,7 @@ export async function main(argv = process.argv.slice(2), env = process.env, deps
   const client = createClient(target.url, target.key, { auth: { persistSession: false, autoRefreshToken: false } });
   const owner = await signInOwner(client, env, log, mode === "--apply");
 
-  if (mode === "--apply") return { mode, ...(await apply(client, owner, plan, log)) };
+  if (mode === "--apply") return { mode, ...(await apply(client, owner, plan, log, media)) };
   const state = JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
   if (mode === "--verify") return { mode, ...(await verify(client, state, log)) };
   return { mode, ...(await syncTest(client, state, now, log)) };
@@ -149,10 +160,15 @@ async function insertChunks(client, tbl, rows, size = 200) {
   for (let i = 0; i < rows.length; i += size) must(await client.from(tbl).insert(rows.slice(i, i + size)), `Insert ${tbl}`);
 }
 
-async function apply(client, owner, plan, log) {
-  // 1. Nur die eigene, eindeutig markierte Migrationsfamilie entfernen
+async function apply(client, owner, plan, log, media = null) {
+  // 1. Nur die eigene, eindeutig markierte Migrationsfamilie entfernen (zuerst ihre Medien über die Storage-API)
   const old = must(await client.from("families").select("id").eq("name", MIGRATION_FAMILY_NAME).eq("created_by", owner.id), "Suche alte Testfamilie");
-  for (const f of old) must(await client.from("families").delete().eq("id", f.id).eq("created_by", owner.id), "Löschen alte Testfamilie");
+  for (const f of old) {
+    const tree = await Media.removeFamilyMediaTree(client, f.id);
+    if (!tree.ok) throw new Error("Medien der alten Testfamilie konnten nicht entfernt werden.");
+    if (tree.removed) log(`Medien der alten Testfamilie entfernt: ${tree.removed}`);
+    must(await client.from("families").delete().eq("id", f.id).eq("created_by", owner.id), "Löschen alte Testfamilie");
+  }
   log(`Alte Migrationsfamilie(n) entfernt: ${old.length}`);
 
   // 2. Familie + owner + Einstellungen + neue TEST-PIN (Hash) + Profile über die Onboarding-RPC
@@ -191,14 +207,31 @@ async function apply(client, owner, plan, log) {
   })));
   must(await client.from("family_settings").update({ last_champion_week: plan.settings.last_champion_week }).eq("family_id", familyId), "last_champion_week");
 
-  writeLocal(STATE_FILE, { familyId, profileIdByRef: Object.fromEntries(idByRef), appliedAt: new Date().toISOString() });
+  // 4. Optional: Bilder (erst nach allen Daten; Pfad wird erst nach erfolgreichem Upload gesetzt)
+  let mediaResult = null;
+  if (media) {
+    mediaResult = { profiles: 0, tasks: 0, failed: 0 };
+    for (const it of media.items) {
+      const blob = new Blob([it.buffer], { type: "image/jpeg" });
+      const r = it.kind === "profile"
+        ? await Media.uploadProfileImage(client, { familyId, profileId: pid(it.profileRef), blob })
+        : await Media.uploadTaskImage(client, { familyId, taskId: it.taskId, blob });
+      if (!r.ok) { mediaResult.failed++; continue; }
+      mediaResult[it.kind === "profile" ? "profiles" : "tasks"]++;
+    }
+    log(`Medien importiert: Profilbilder ${mediaResult.profiles}, Aufgabenbilder ${mediaResult.tasks}, fehlgeschlagen ${mediaResult.failed}`);
+  }
+
+  writeLocal(STATE_FILE, { familyId, profileIdByRef: Object.fromEntries(idByRef), appliedAt: new Date().toISOString(),
+    media: mediaResult ? { expectedProfiles: media.items.filter((i) => i.kind === "profile").length, expectedTasks: media.items.filter((i) => i.kind === "task").length } : null });
   log(`Apply abgeschlossen: Familie ${familyId.slice(0, 8)}…, Einlösungen importiert: ${nRed}`);
   const counts = await countRows(client, familyId);
   const exp = expectedCounts(plan);
   const diff = Object.keys(exp).filter((k) => counts[k] !== exp[k]);
   log(table([["Tabelle", "erwartet", "Ziel"], ...Object.keys(exp).map((k) => [k, exp[k], counts[k]])]));
   if (diff.length) throw new Error(`Count-Abweichung: ${diff.join(", ")}`);
-  return { familyId, counts };
+  if (mediaResult?.failed) throw new Error(`${mediaResult.failed} Bild(er) konnten nicht importiert werden.`);
+  return { familyId, counts, media: mediaResult };
 }
 
 export async function countRows(client, familyId) {
@@ -232,9 +265,19 @@ async function verify(client, state, log) {
   const diffs = Object.keys(reference.counts).filter((k) => counts[k] !== reference.counts[k]);
   log(table([["Tabelle", "Referenz", "Ziel"], ...Object.keys(reference.counts).map((k) => [k, reference.counts[k], counts[k]])]));
   const openHints = res.model.data.notifications.length;
+  // Medien: Pfade in der DB, Objekte im Familienpfad, Lesbarkeit (signierte URL) – nur Zahlen
+  const data = res.model.data;
+  const photoPaths = [...data.members, ...data.archived.members].map((m) => m.photoPath).filter(Boolean);
+  const imagePaths = [...data.tasks, ...data.archived.tasks].map((t) => t.imagePath).filter(Boolean);
+  const all = [...photoPaths, ...imagePaths];
+  const inFamily = all.filter((p) => Media.parseMediaPath(p)?.familyId === state.familyId).length;
+  const signed = all.length ? [...(await Media.createSignedUrlCache({ client }).resolve(all)).values()].filter(Boolean).length : 0;
+  const mediaOk = !state.media || (photoPaths.length === state.media.expectedProfiles && imagePaths.length === state.media.expectedTasks && inFamily === all.length && signed === all.length);
+  log(`Medien: Profile mit photo_path ${photoPaths.length}, Aufgaben mit image_path ${imagePaths.length}, im Familienpfad ${inFamily}, signierbar ${signed}${state.media ? ` (erwartet ${state.media.expectedProfiles}/${state.media.expectedTasks})` : " (ohne --include-media)"}`);
   log(`Offene Eltern-Hinweise (unquittierte Einlösungen): ${openHints}`);
-  log(cmp.ok && !diffs.length ? "VERIFY OK – alle Diffs 0" : `VERIFY FEHLER – Profile: ${cmp.rows.filter((r) => !r.ok).map((r) => r.ref).join(",")} Counts: ${diffs.join(",")}`);
-  return { ok: cmp.ok && !diffs.length, comparison: cmp, counts, openHints };
+  const ok = cmp.ok && !diffs.length && mediaOk;
+  log(ok ? "VERIFY OK – alle Diffs 0" : `VERIFY FEHLER – Profile: ${cmp.rows.filter((r) => !r.ok).map((r) => r.ref).join(",")} Counts: ${diffs.join(",")} Medien: ${mediaOk ? "ok" : "abweichend"}`);
+  return { ok, comparison: cmp, counts, openHints, media: { photoPaths: photoPaths.length, imagePaths: imagePaths.length, inFamily, signed } };
 }
 
 async function syncTest(client, state, now, log) {

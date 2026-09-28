@@ -6,11 +6,14 @@
 // gleichzeitig). Keine optimistische UI.
 // Elternbereich: Auth-Rolle owner/parent UND serverseitig geprüfte PIN (10 Minuten, nur im Speicher).
 // Lebensdauer = eine Familie (key={familyId}): Unmount bei Familienwechsel/Logout beendet
-// Realtime, Timer, Scheduler und verwirft das PIN-Gate.
-import { useCallback, useEffect, useRef, useState } from "react";
+// Realtime, Timer, Scheduler und verwirft das PIN-Gate sowie den Cache der signierten Bild-URLs.
+// Bilder (5B): Modell enthält nur Storage-Pfade; signierte URLs (60 min) kommen aus einem
+// Cache im Speicher dieser Familie und werden nach jedem Laden/Realtime-Reload aufgelöst.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getFamilyClient } from "../lib/supabaseFamily.js";
 import { loadFamilyData } from "../lib/familyData.js";
 import * as M from "../lib/familyMutations.js";
+import * as Media from "../lib/familyMedia.js";
 import { PARENT_UNLOCK_MS, hasAdminRole, canAccessAdmin, unlockUntil } from "../lib/parentGate.js";
 import { toDateKey } from "../lib/dateUtils.js";
 import { createReloadScheduler } from "../lib/reloadScheduler.js";
@@ -24,6 +27,7 @@ const LOCKED_MSG = "Der Elternbereich ist gesperrt. Bitte die Eltern-PIN erneut 
 const ROLE_MSG = "Nur Eltern (Inhaber:in oder Elternteil) können den Elternbereich öffnen.";
 const OFFLINE_MSG = "Verbindung unterbrochen – Daten werden nach dem Wiederverbinden aktualisiert.";
 const OFFLINE_HINT_AFTER_MS = 6000; // kurze Unterbrechungen nicht anzeigen
+const MEDIA_REFRESH_MS = 5 * 60 * 1000; // signierte URLs rechtzeitig vor Ablauf erneuern
 
 export default function FamilyChampion({ familyId, role, email, canSwitchFamily, onSwitchFamily, onLogout }) {
   const [state, setState] = useState({ status: "loading", model: null, error: "" }); // loading | loaded | error
@@ -46,6 +50,10 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
   const [bootKey, setBootKey] = useState(0);             // „Erneut versuchen“ startet den Lebenszyklus neu
 
   const client = getFamilyClient();
+  // Signierte Bild-URLs: nur im Speicher, nur für diese Familie (Unmount = verwerfen)
+  const mediaRef = useRef(null);
+  if (!mediaRef.current) mediaRef.current = Media.createSignedUrlCache({ client });
+  const [urlMap, setUrlMap] = useState(() => new Map());
 
   // Erstes Laden und „Erneut versuchen“ zeigen den Ladezustand; refresh (Scheduler) behält
   // Oberfläche und Ansicht und tauscht nur die Daten aus.
@@ -126,6 +134,23 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     };
   }, [load, familyId, syncChampion, bootKey]);
 
+  // Bildpfade des aktuellen Modells in signierte URLs auflösen (Cache; nur fehlende/ablaufende neu).
+  // Läuft nach jedem Laden (auch Realtime-Reload) und alle 5 Minuten; alte URLs neuer Pfade entfallen.
+  useEffect(() => {
+    const data = state.model?.data;
+    let cancelled = false;
+    const run = async () => {
+      const paths = Media.collectMediaPaths(data);
+      const m = paths.length ? await mediaRef.current.resolve(paths) : new Map();
+      if (!cancelled && !disposedRef.current) setUrlMap(m);
+    };
+    run();
+    const t = setInterval(run, MEDIA_REFRESH_MS);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [state.model]);
+  useEffect(() => () => mediaRef.current?.clear(), []);
+  const displayData = useMemo(() => (state.model ? Media.withDisplayUrls(state.model.data, urlMap) : null), [state.model, urlMap]);
+
   // Automatisch sperren, sobald der Entsperrzeitraum abläuft.
   useEffect(() => {
     if (!unlockedUntil) return undefined;
@@ -153,18 +178,45 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
 
   // UI-Modell der gemeinsamen Oberfläche → Mutationsschicht (Namen wie in der bisherigen App)
   const catId = (name) => (state.model?.data.customCategories || []).find((c) => c.name === name)?.id || null;
+  // Bild nach erfolgreichem Speichern des Datensatzes: ersetzen (Upload → Pfad → altes löschen)
+  // oder entfernen. Scheitert nur das Bild, bleibt der Datensatz gespeichert (Hinweis statt Fehler).
+  const withMedia = async (r, kind, item) => {
+    if (!r.ok) return r;
+    const entityId = r.id || item.id;
+    const prev = (kind === "profile" ? item.photoPath : item.imagePath) || null;
+    let m = null;
+    if (item.photoFile) m = await Media.replaceEntityMedia(client, { familyId, kind, entityId, blob: item.photoFile, previousPath: prev });
+    else if (item.photoRemoved && prev) m = await Media.clearEntityMedia(client, { familyId, kind, entityId, previousPath: prev });
+    if (item.photoPreview) { try { URL.revokeObjectURL(item.photoPreview); } catch { /* ignore */ } }
+    if (m && prev && m.ok) mediaRef.current.invalidate(prev);
+    if (m && !m.ok) return { ...r, warning: `Gespeichert – aber: ${m.message}` };
+    return r;
+  };
+  const findPath = (kind, id) => {
+    const d = modelRef.current?.data;
+    const list = kind === "profile" ? [...(d?.members || []), ...(d?.archived?.members || [])] : [...(d?.tasks || []), ...(d?.archived?.tasks || [])];
+    const x = list.find((e) => e.id === id);
+    return (kind === "profile" ? x?.photoPath : x?.imagePath) || null;
+  };
+  // Physisch gelöschte (unbenutzte) Einträge: zugehöriges Bild entfernen. Archivierte behalten ihr Bild.
+  const removeWithMedia = async (kind, id, fn) => {
+    const path = findPath(kind, id);
+    const r = await fn();
+    if (r.ok && r.mode === "deleted" && path) { await Media.removeMedia(client, [path]); mediaRef.current.invalidate(path); }
+    return r;
+  };
   const SAVE = {
     // expectedUpdatedAt = Stand beim Öffnen des Formulars → keine stille Überschreibung (Konflikt)
-    task: (t) => M.saveTask(client, { familyId, task: { id: t.id || null, title: t.name, points: Number(t.points), recurrence: t.recurring || "daily", icon: t.emoji, categoryId: catId(t.category), assignedTo: t.assignedTo || [], active: t.active !== false, expectedUpdatedAt: t.updatedAt || null } }),
+    task: async (t) => withMedia(await M.saveTask(client, { familyId, task: { id: t.id || null, title: t.name, points: Number(t.points), recurrence: t.recurring || "daily", icon: t.emoji, categoryId: catId(t.category), assignedTo: t.assignedTo || [], active: t.active !== false, expectedUpdatedAt: t.updatedAt || null } }), "task", t),
     reward: (r) => M.saveReward(client, { familyId, reward: { id: r.id || null, title: r.name, pointsRequired: Number(r.pointsCost), icon: r.emoji, assignedTo: r.assignedTo || [], active: r.active !== false, expectedUpdatedAt: r.updatedAt || null } }),
     category: (c) => M.saveCategory(client, { familyId, category: { id: c.id || null, name: c.name, icon: c.emoji, assignedTo: c.assignedTo || [], expectedUpdatedAt: c.updatedAt || null } }),
-    member: (m) => M.saveProfile(client, { familyId, profile: { id: m.id || null, name: m.name, avatarEmoji: m.emoji, color: m.color, active: m.active !== false, expectedUpdatedAt: m.updatedAt || null } }),
+    member: async (m) => withMedia(await M.saveProfile(client, { familyId, profile: { id: m.id || null, name: m.name, avatarEmoji: m.emoji, color: m.color, active: m.active !== false, expectedUpdatedAt: m.updatedAt || null } }), "profile", m),
   };
   const REMOVE = {
-    task: (id) => M.removeTask(client, { familyId, taskId: id }),
+    task: (id) => removeWithMedia("task", id, () => M.removeTask(client, { familyId, taskId: id })),
     reward: (id) => M.removeReward(client, { familyId, rewardId: id }),
     category: (id) => M.deleteCategory(client, { familyId, categoryId: id }),
-    member: (id) => M.removeProfile(client, { familyId, profileId: id }),
+    member: (id) => removeWithMedia("profile", id, () => M.removeProfile(client, { familyId, profileId: id })),
   };
   const RESTORE = {
     task: (id) => M.restoreTask(client, { familyId, taskId: id }),
@@ -189,6 +241,11 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     correctCompletion: (id) => mutate(() => M.correctCompletion(client, { familyId, completionId: id }), { admin: true }),
     reconfirmCompletion: (id) => mutate(() => M.reconfirmCompletion(client, { familyId, completionId: id }), { admin: true }),
     acknowledgeRedemptions: (ids) => mutate(() => M.acknowledgeRedemptions(client, { familyId, redemptionIds: ids.filter(Boolean) }), { admin: true }),
+    // Bild im Browser vorbereiten (verkleinern, JPEG, ohne Metadaten) – noch kein Upload
+    prepareMedia: async (file, kind) => {
+      const r = await Media.prepareImage(file, kind);
+      return r.ok ? { ...r, previewUrl: URL.createObjectURL(r.blob) } : r;
+    },
     verifyPin: async (pin) => {
       if (!hasAdminRole(role)) return { ok: false, message: ROLE_MSG };
       const r = await M.verifyParentPin(client, { familyId, pin });
@@ -230,7 +287,7 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
   return (<>
     {offline && <div role="status" data-testid="offline-hint" style={offlineStyle}>{OFFLINE_MSG}</div>}
     <ChampionApp
-      data={model.data}
+      data={displayData}
       showDailyCrown={model.settings.showDailyCrown}
       settings={model.settings}
       actions={actions}

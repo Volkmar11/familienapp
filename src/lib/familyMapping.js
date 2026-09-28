@@ -16,7 +16,9 @@ export function mapProfiles(profiles, active = true) {
     id: p.id,
     name: p.name,
     emoji: p.avatar_emoji || "🙂",
-    photo: p.avatar_url || null,
+    // Nur der stabile Storage-Pfad; die Anzeige-URL (signiert, kurzlebig) setzt FamilyChampion ein.
+    photoPath: p.photo_path || null,
+    photo: null,
     color: p.color || "#6366f1",
     sortOrder: p.sort_order ?? 0,
     // Neutraler Wert: optionales Eltern-Spielerprofil (Phase 4C1 legt keine an).
@@ -39,7 +41,8 @@ export function mapTasks(tasks, categoryById, active = true) {
     id: t.id,
     name: t.title,
     emoji: t.icon || "✅",
-    photo: t.image_url || null,
+    imagePath: t.image_path || null,
+    photo: null,
     points: t.points,
     categoryId: t.category_id ?? null,
     category: (t.category_id && categoryById.get(t.category_id)?.name) || "",

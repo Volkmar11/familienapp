@@ -71,8 +71,37 @@ function getCurrentStreak(completions) {
 
 // ── Helpers ──
 function Avatar({ member, size = 28 }) {
-  if (member?.photo) return <img src={member.photo} alt={member.name} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",border:`2px solid ${member.color}`}}/>;
+  const [failed, setFailed] = useState(null); // URL, die nicht geladen werden konnte → Emoji
+  if (member?.photo && failed !== member.photo) return <img src={member.photo} alt={member.name} onError={()=>setFailed(member.photo)} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",border:`2px solid ${member.color}`}}/>;
   return <span style={{fontSize:size*0.85}}>{member?.emoji||"😊"}</span>;
+}
+
+// FAMILY (Phase 5B): Bildauswahl mit Vorschau. Das Bild wird sofort im Browser verkleinert
+// (actions.prepareMedia); hochgeladen wird erst beim Speichern. Emoji bleibt Fallback.
+function FamPhotoPicker({ item, setItem, kind, prepare, testId }) {
+  const fileRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const shown = item.photoPreview || (item.photoRemoved ? null : item.photo);
+  const isProfile = kind === "profile";
+  const onFile = async (e) => {
+    const f = e.target.files?.[0]; e.target.value = "";
+    if (!f || !prepare) return;
+    setBusy(true); setErr("");
+    const r = await prepare(f, kind);
+    setBusy(false);
+    if (!r?.ok) { setErr(r?.message || "Das Bild konnte nicht gelesen werden."); return; }
+    setItem((cur) => ({ ...cur, photoFile: r.blob, photoPreview: r.previewUrl, photoRemoved: false }));
+  };
+  return <div style={{marginBottom:12}} data-testid={testId}>
+    <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{display:"none"}} data-testid={`${testId}-input`}/>
+    <button type="button" disabled={busy} onClick={()=>fileRef.current?.click()} style={{background:"#f1f5f9",border:"2px dashed #cbd5e1",borderRadius:16,padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,width:"100%",fontFamily:"inherit",fontSize:14,color:"#334155",minWidth:0}}>
+      {shown ? <img src={shown} alt="Vorschau" data-testid={`${testId}-preview`} style={{width:44,height:44,borderRadius:isProfile?"50%":10,objectFit:"cover",flexShrink:0}}/> : <span style={{fontSize:24}}>📷</span>}
+      <span>{busy ? "Bild wird vorbereitet …" : shown ? (isProfile ? "Foto ändern" : "Bild ändern") : (isProfile ? "Foto wählen" : "Bild hinzufügen (optional)")}</span>
+    </button>
+    {shown&&<button type="button" onClick={()=>setItem((cur)=>({...cur,photoFile:null,photoPreview:null,photoRemoved:true}))} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>{isProfile?"Foto entfernen":"Bild entfernen"}</button>}
+    {err&&<div role="alert" style={{color:"#b91c1c",fontSize:12,marginTop:4}}>{err}</div>}
+  </div>;
 }
 
 function PhotoUpload({ onPhoto, currentPhoto, label }) {
@@ -256,7 +285,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
   const famAct=async(fn,okMsg)=>{const r=await runAction(fn);if(r)flash(r.ok?(r.message||okMsg):r.message,r.ok?2200:3500);return r;};
   const REMOVE_ASK={task:"Aufgabe löschen? Bereits erledigte Aufgaben werden nur archiviert – Punkte und Verlauf bleiben erhalten.",reward:"Belohnung löschen? Bereits eingelöste Belohnungen werden nur archiviert.",category:"Kategorie löschen?",member:"Kinderprofil entfernen? Profile mit Punkten oder Verlauf werden nur archiviert."};
   const famRemove=(kind,item)=>{if(busy||!confirm(`„${item.name}“: ${REMOVE_ASK[kind]}`))return;famAct(()=>actions.remove(kind,item.id));};
-  const famSave=async(kind,item,close)=>{const r=await runAction(()=>actions.save(kind,item));if(!r)return;if(r.ok){close();flash(r.created?"Erstellt!":"Gespeichert!");}else flash(r.message,3500);};
+  const famSave=async(kind,item,close)=>{const r=await runAction(()=>actions.save(kind,item));if(!r)return;if(r.ok){close();if(r.warning)flash(r.warning,4000);else flash(r.created?"Erstellt!":"Gespeichert!");}else flash(r.message,3500);};
   const moveBtns=(kind,list,item)=>{const ids=list.map(x=>x.id),i=ids.indexOf(item.id);const mv=(dlt)=>{const j=i+dlt;if(j<0||j>=ids.length||busy)return;const next=[...ids];[next[i],next[j]]=[next[j],next[i]];famAct(()=>actions.reorder(kind,next),"Reihenfolge gespeichert");};
     const st=(on)=>({background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 7px",cursor:on?"pointer":"default",color:"#c7d2fe",opacity:on?1:0.35,fontSize:12});
     return <><button aria-label={`Nach oben: ${item.name}`} disabled={i===0||busy} onClick={()=>mv(-1)} style={st(i>0)}>▲</button><button aria-label={`Nach unten: ${item.name}`} disabled={i===ids.length-1||busy} onClick={()=>mv(1)} style={st(i<ids.length-1)}>▼</button></>;};
@@ -920,10 +949,11 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <input value={editTask.name} onChange={e=>setEditTask({...editTask,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
         <label style={S.label}>Bild / Icon</label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
-          {TASK_CLIPARTS.map(e=><button key={e} onClick={()=>setEditTask({...editTask,emoji:e,photo:null})} style={{fontSize:22,padding:4,borderRadius:10,border:editTask.emoji===e&&!editTask.photo?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{e}</button>)}
+          {TASK_CLIPARTS.map(e=><button key={e} onClick={()=>setEditTask({...editTask,emoji:e,...(fam?{}:{photo:null})})} style={{fontSize:22,padding:4,borderRadius:10,border:editTask.emoji===e&&!editTask.photo?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{e}</button>)}
         </div>
         {!fam&&<PhotoUpload currentPhoto={editTask.photo} onPhoto={(p)=>setEditTask({...editTask,photo:p})} label="Eigenes Bild hochladen"/>}
         {!fam&&editTask.photo&&<button onClick={()=>setEditTask({...editTask,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Bild entfernen</button>}
+        {fam&&<FamPhotoPicker item={editTask} setItem={setEditTask} kind="task" prepare={actions?.prepareMedia} testId="task-photo"/>}
         <label style={{...S.label,marginTop:12}}>Punkte</label>
         <input type="number" value={editTask.points} onChange={e=>setEditTask({...editTask,points:parseInt(e.target.value)||0})} style={{...S.inp,marginBottom:12}}/>
         <label style={S.label}>Kategorie</label>
@@ -967,7 +997,9 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           {editMember.photo&&<button onClick={()=>setEditMember({...editMember,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Foto entfernen</button>}
         </div>
         </>}
-        <label style={{...S.label,marginBottom:8}}>{fam?"Emoji":"Emoji (Fallback)"}</label>
+        {fam&&<><label style={{...S.label,marginBottom:8}}>Profilbild (optional)</label>
+          <FamPhotoPicker item={editMember} setItem={setEditMember} kind="profile" prepare={actions?.prepareMedia} testId="profile-photo"/></>}
+        <label style={{...S.label,marginBottom:8}}>{fam?"Emoji (wird ohne Foto angezeigt)":"Emoji (Fallback)"}</label>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
           {emojis.map(em=><button key={em} onClick={()=>setEditMember({...editMember,emoji:em})} style={{fontSize:26,padding:5,borderRadius:12,border:editMember.emoji===em?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{em}</button>)}
         </div>

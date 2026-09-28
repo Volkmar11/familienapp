@@ -19,19 +19,19 @@ function rawFamily(overrides = {}) {
     id: "fam-1", name: "Familie Beispiel",
     family_settings: { show_daily_crown: true, require_confirmation: true, last_champion_week: "2026-09-28", timezone: "Europe/Berlin" },
     profiles: [
-      { id: "p-sam", name: "Sam", avatar_emoji: "🦊", avatar_url: null, color: "#f00", sort_order: 1, active: true, is_parent: false },
-      { id: "p-alex", name: "Alex", avatar_emoji: null, avatar_url: null, color: null, sort_order: 0, active: true, is_parent: false },
-      { id: "p-kim", name: "Kim", avatar_emoji: "🐼", avatar_url: null, color: "#0f0", sort_order: 2, active: true, is_parent: true },
-      { id: "p-old", name: "Alt", avatar_emoji: "👻", avatar_url: null, color: "#000", sort_order: 3, active: false, is_parent: false },
+      { id: "p-sam", name: "Sam", avatar_emoji: "🦊", photo_path: null, color: "#f00", sort_order: 1, active: true, is_parent: false },
+      { id: "p-alex", name: "Alex", avatar_emoji: null, photo_path: null, color: null, sort_order: 0, active: true, is_parent: false },
+      { id: "p-kim", name: "Kim", avatar_emoji: "🐼", photo_path: null, color: "#0f0", sort_order: 2, active: true, is_parent: true },
+      { id: "p-old", name: "Alt", avatar_emoji: "👻", photo_path: null, color: "#000", sort_order: 3, active: false, is_parent: false },
     ],
     categories: [
       { id: "c-kue", name: "Küche", icon: "🍳", sort_order: 1, category_assignments: [] },
       { id: "c-ord", name: "Ordnung", icon: "🧹", sort_order: 0, category_assignments: [{ profile_id: "p-sam" }] },
     ],
     tasks: [
-      { id: "t-1", category_id: "c-ord", title: "Zimmer aufräumen", icon: "🧸", image_url: null, points: 10, recurrence: "daily", active: true, sort_order: 0, task_assignments: [] },
-      { id: "t-2", category_id: "c-kue", title: "Tisch decken", icon: "🍽️", image_url: null, points: 5, recurrence: "daily", active: true, sort_order: 1, task_assignments: [{ profile_id: "p-alex" }, { profile_id: "p-kim" }] },
-      { id: "t-3", category_id: null, title: "Inaktiv", icon: null, image_url: null, points: 3, recurrence: "daily", active: false, sort_order: 2, task_assignments: [] },
+      { id: "t-1", category_id: "c-ord", title: "Zimmer aufräumen", icon: "🧸", image_path: null, points: 10, recurrence: "daily", active: true, sort_order: 0, task_assignments: [] },
+      { id: "t-2", category_id: "c-kue", title: "Tisch decken", icon: "🍽️", image_path: null, points: 5, recurrence: "daily", active: true, sort_order: 1, task_assignments: [{ profile_id: "p-alex" }, { profile_id: "p-kim" }] },
+      { id: "t-3", category_id: null, title: "Inaktiv", icon: null, image_path: null, points: 3, recurrence: "daily", active: false, sort_order: 2, task_assignments: [] },
     ],
     rewards: [
       { id: "r-1", title: "Spieleabend", icon: "🎲", points_required: 50, active: true, sort_order: 0, reward_assignments: [] },
