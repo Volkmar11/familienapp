@@ -11,6 +11,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
 import { loadFamilyData } from "../../src/lib/familyData.js";
@@ -191,6 +192,6 @@ check("Settings", "fremde Familie kann Einstellungen nicht ändern (RLS)", !r.ok
 for (const x of R) console.log(`${x.ok ? "✅" : "❌"} [${x.group}] ${x.n}${x.ok || !x.d ? "" : " – " + x.d}`);
 const failed = R.filter((x) => !x.ok).length;
 console.log(`\n${R.length - failed}/${R.length} bestanden`);
-for (const [c, f] of [[A.c, f1], [A.c, f2], [B.c, fB]]) await c.from("families").delete().eq("id", f);
-console.log("Wegwerf-Familien gelöscht; Auth-Konten per SQL entfernen (siehe Kopfkommentar).");
+const cl = await deleteTestAccounts(cfg, [A, B]);
+console.log(cl.ok ? `Wegwerf-Konten und ${cl.deletedFamilies} Familien über delete-account gelöscht.` : "WARNUNG: Aufräumen unvollständig");
 process.exit(failed ? 1 : 0);

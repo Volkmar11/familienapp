@@ -3,7 +3,8 @@ import { signIn, signUp, requestPasswordReset, MIN_PASSWORD_LENGTH } from "../li
 import { getAuthRedirectUrl } from "../lib/authRedirects.js";
 import { runtimeEnv } from "../config/backend.js";
 import { getInviteSignupRedirect } from "../lib/familyInvitations.js";
-import { S, C, Shell, Header, Message } from "./ui.jsx";
+import { getLegalLinks } from "../config/legal.js";
+import { S, C, Shell, Header, Message, LegalLinks } from "./ui.jsx";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -102,6 +103,7 @@ export default function AuthScreen({ notice = "", onNoticeShown, inviteToken = n
           {mode === "forgot" && <button type="button" style={S.link} onClick={() => switchTo("login")} disabled={busy}>← Zurück zur Anmeldung</button>}
         </div>
       </form>
+      <LegalLinks links={getLegalLinks(runtimeEnv)} />
     </Shell>
   );
 }

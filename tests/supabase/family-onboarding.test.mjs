@@ -9,6 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
 
@@ -19,10 +20,10 @@ const mk = () => createClient(cfg.url, cfg.key, { auth: { persistSession: false,
 const R = []; const check = (n, ok, d = "") => R.push({ n, ok: !!ok, d });
 const stamp = Date.now();
 async function user(tag) {
-  const c = mk(); const email = `wc-p4b-${tag}-${stamp}@example.com`;
-  const r = await c.auth.signUp({ email, password: randomUUID() });
+  const c = mk(); const email = `wc-p4b-${tag}-${stamp}@example.com`, password = randomUUID();
+  const r = await c.auth.signUp({ email, password });
   if (r.error || !r.data.session) throw new Error("signUp fehlgeschlagen: " + r.error?.message);
-  return { c, id: r.data.user.id, email };
+  return { c, id: r.data.user.id, email, password };
 }
 const A = await user("a"), B = await user("b"), anon = mk();
 const rpc = (c, rid, payload) => c.rpc("create_family_with_onboarding", { p_request_id: rid, ...payload });
@@ -112,8 +113,8 @@ v = await A.c.rpc("verify_parent_pin", { p_family_id: fid, p_pin: "5555" });
 check("  nach 5 Fehlversuchen gesperrt (60 s)", v.data === false);
 
 if (!process.env.KEEP) {
-  await A.c.from("families").delete().eq("id", fid);
-  await B.c.from("families").delete().eq("id", d1.familyId);
+  const cl = await deleteTestAccounts(cfg, [A, B]);
+  if (!cl.ok) console.log("WARNUNG: Aufräumen unvollständig");
 }
 for (const x of R) console.log(`${x.ok ? "PASS" : "FAIL"} | ${x.n}${x.ok || !x.d ? "" : " | " + x.d}`);
 console.log(`\n${R.filter((x) => x.ok).length}/${R.length} bestanden · family_id A: ${fid}${process.env.KEEP ? " (behalten)" : ""}`);

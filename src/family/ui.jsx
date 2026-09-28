@@ -89,3 +89,17 @@ export function Message({ kind, children }) {
   if (!children) return null;
   return <div role={kind === "error" ? "alert" : "status"} style={S.msg(kind)}>{children}</div>;
 }
+
+// Rechtliche Links (Phase 6A): nur konfigurierte https-/mailto-Ziele, öffnen in neuem Tab bzw. extern.
+// Ohne Konfiguration wird nichts angezeigt (siehe src/config/legal.js).
+export function LegalLinks({ links = [] }) {
+  if (!links.length) return null;
+  return (
+    <nav aria-label="Rechtliches" data-testid="legal-links" style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16, marginTop: 20, fontSize: 13 }}>
+      {links.map((l) => (
+        <a key={l.key} href={l.href} target={l.href.startsWith("mailto:") ? undefined : "_blank"} rel="noopener noreferrer"
+          style={{ color: C.muted, textDecoration: "underline", padding: "6px 2px" }}>{l.label}</a>
+      ))}
+    </nav>
+  );
+}

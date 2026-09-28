@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
 import { loadFamilyData } from "../../src/lib/familyData.js";
@@ -27,9 +28,10 @@ const stamp = Date.now();
 const JPEG = fs.readFileSync(new URL("../fixtures/synthetic-8x8.jpg", import.meta.url));
 const blob = () => new Blob([JPEG], { type: "image/jpeg" });
 async function user(tag) {
-  const c = mk(); const r = await c.auth.signUp({ email: `wc-p5b-${tag}-${stamp}@example.com`, password: randomUUID() });
+  const email = `wc-p5b-${tag}-${stamp}@example.com`, password = randomUUID();
+  const c = mk(); const r = await c.auth.signUp({ email, password });
   if (r.error || !r.data.session) throw new Error("signUp fehlgeschlagen: " + r.error?.message);
-  return { c, id: r.data.user.id };
+  return { c, id: r.data.user.id, email, password };
 }
 async function onboard(u, name, kids) {
   const s = initialOnboardingState(); s.familyName = name;
@@ -144,9 +146,9 @@ await Media.uploadProfileImage(A.c, { familyId: fA, profileId: pA, blob: blob() 
 const tree = await Media.removeFamilyMediaTree(A.c, fA);
 check("Familien-Cleanup entfernt alle Objekte unter families/<id>/", tree.ok && tree.removed === 2 && (await listFiles(A.c, `families/${fA}/profiles/${pA}`)).length === 0 && (await listFiles(A.c, `families/${fA}/profiles/${pA2}`)).length === 0, `${tree.removed}`);
 
-// Aufräumen: Familien löschen (Objekte sind bereits entfernt)
-await A.c.from("families").delete().eq("id", fA);
-await B.c.from("families").delete().eq("id", fB);
+// Aufräumen über delete-account (seit Phase 6A kein direktes DELETE auf families)
+const cl = await deleteTestAccounts(cfg, [A, B]);
+check("Aufräumen: Konten + Familien über delete-account gelöscht", cl.ok && cl.deletedFamilies === 2, JSON.stringify(cl));
 
 const failed = R.filter((x) => !x.ok);
 for (const x of R) console.log(`${x.ok ? "✅" : "❌"} ${x.n}${x.ok || !x.d ? "" : " – " + x.d}`);

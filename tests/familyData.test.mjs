@@ -6,7 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mapFamilyToChampionData } from "../src/lib/familyMapping.js";
-import { validateFamilyRaw, fetchFamilyRaw, loadFamilyData, FAMILY_SELECT } from "../src/lib/familyData.js";
+import { validateFamilyRaw, fetchFamilyRaw, loadFamilyData, fetchAllRows, FAMILY_SELECT, HISTORY_SELECTS } from "../src/lib/familyData.js";
 import { memberPointSummary, dayLeaderIds } from "../src/shared/points.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -153,32 +153,75 @@ test("Integrität: fehlende Einstellungen/Listen/Referenzen → Fehler statt Def
   assert.match(validateFamilyRaw(rawFamily({ profiles: [{ id: "p", name: "" }] })).join(), /Profil ohne Namen/);
 });
 
-// Minimaler Client-Stub: zeichnet Aufrufe auf, kennt nur select/eq/maybeSingle.
-function stubClient(result) {
+// Client-Stub: families (eingebettete Stammdaten) + Verlaufstabellen (paginiert, optional mit Server-Obergrenze).
+// result: { data, error } | () => Promise für die families-Abfrage. Verlaufslisten kommen aus result.data (falls vorhanden).
+function stubClient(result, { serverCap = Infinity, withCount = true, historyError = null } = {}) {
   const calls = [];
-  const q = {
-    select(s) { calls.push(["select", s]); return q; },
-    eq(c, v) { calls.push(["eq", c, v]); return q; },
-    maybeSingle() { calls.push(["maybeSingle"]); return typeof result === "function" ? result() : Promise.resolve(result); },
+  const from = (t) => {
+    calls.push(["from", t]);
+    const st = { t, range: null };
+    const q = {
+      select(s, opts) { calls.push(["select", t, s, opts || null]); return q; },
+      eq(c, v) { calls.push(["eq", t, c, v]); return q; },
+      order(c) { calls.push(["order", t, c]); return q; },
+      range(a, b) {
+        calls.push(["range", t, a, b]);
+        if (historyError) return Promise.resolve({ data: null, error: historyError, count: null });
+        const base = typeof result === "function" ? null : result?.data;
+        const all = Array.isArray(base?.[t]) ? [...base[t]].sort((x, y) => String(x.id).localeCompare(String(y.id))) : [];
+        const rows = all.slice(a, Math.min(b + 1, a + serverCap));
+        return Promise.resolve({ data: rows, error: null, count: withCount && a === 0 ? all.length : null });
+      },
+      maybeSingle() {
+        calls.push(["maybeSingle", t]);
+        const r = typeof result === "function" ? result() : Promise.resolve(result);
+        return r.then((x) => (x?.data ? { ...x, data: Object.fromEntries(Object.entries(x.data).filter(([k]) => !["completions", "redemptions", "champion_history"].includes(k))) } : x));
+      },
+    };
+    return q;
   };
-  return { calls, from(t) { calls.push(["from", t]); return q; } };
+  return { calls, from };
 }
 
-test("Service: genau eine Leseabfrage auf families mit allen Tabellen eingebettet", async () => {
+test("Service: Stammdaten eingebettet, Verlaufstabellen getrennt und stabil sortiert", async () => {
   const c = stubClient({ data: rawFamily(), error: null });
   const r = await loadFamilyData(c, "fam-1");
   assert.equal(r.ok, true);
-  assert.deepEqual(c.calls.map((x) => x[0]), ["from", "select", "eq", "maybeSingle"]);
-  assert.deepEqual(c.calls[0], ["from", "families"]);
-  assert.deepEqual(c.calls[2], ["eq", "id", "fam-1"]);
-  for (const t of ["family_settings", "profiles", "categories", "category_assignments", "tasks", "task_assignments", "rewards", "reward_assignments", "completions", "redemptions", "champion_history"]) {
+  const fams = c.calls.filter((x) => x[1] === "families" || (x[0] === "from" && x[1] === "families"));
+  assert.ok(c.calls.some((x) => x[0] === "eq" && x[1] === "families" && x[2] === "id" && x[3] === "fam-1"));
+  assert.ok(fams.length > 0);
+  for (const t of ["family_settings", "profiles", "categories", "category_assignments", "tasks", "task_assignments", "rewards", "reward_assignments"]) {
     assert.match(FAMILY_SELECT, new RegExp(`\\b${t} \\(`), t);
   }
+  for (const t of ["completions", "redemptions", "champion_history"]) {
+    assert.doesNotMatch(FAMILY_SELECT, new RegExp(`\\b${t} \\(`), `${t} nicht mehr eingebettet (max_rows)`);
+    assert.ok(c.calls.some((x) => x[0] === "eq" && x[1] === t && x[2] === "family_id" && x[3] === "fam-1"), t);
+    assert.ok(c.calls.some((x) => x[0] === "order" && x[1] === t && x[2] === "id"), `${t} nach id sortiert`);
+    assert.ok(c.calls.some((x) => x[0] === "select" && x[1] === t && x[3]?.count === "exact"), `${t} mit count`);
+  }
+  assert.deepEqual(r.model.data, mapFamilyToChampionData(rawFamily()).data, "gleiches Modell wie aus den vollständigen Rohdaten");
+});
+
+test("Service: Paginierung lädt alle Zeilen – auch wenn der Server kleinere Seiten liefert", async () => {
+  const many = Array.from({ length: 2345 }, (_, i) => ({ id: `c${String(i).padStart(5, "0")}`, profile_id: "p1", task_id: null, task_title: "X", category_name: null,
+    points: 1, completed_at: "2026-09-30T08:00:00Z", completion_date: "2026-09-30", status: "confirmed" }));
+  const base = rawFamily();
+  const fam = { ...base, completions: many, profiles: base.profiles.length ? base.profiles : [{ id: "p1", name: "K" }] };
+  fam.completions = many.map((x) => ({ ...x, profile_id: fam.profiles[0].id }));
+  for (const [cap, withCount] of [[Infinity, true], [300, true], [300, false], [1000, true]]) {
+    const r = await fetchAllRows(stubClient({ data: fam, error: null }, { serverCap: cap, withCount }), "completions", HISTORY_SELECTS.completions, "fam-1", 1000);
+    if (withCount || cap >= 1000) assert.equal(r.length, 2345, `cap=${cap} count=${withCount}`);
+    assert.equal(new Set(r.map((x) => x.id)).size, r.length, "keine Duplikate");
+  }
+  const full = await loadFamilyData(stubClient({ data: fam, error: null }, { serverCap: 1000 }), "fam-1");
+  assert.equal(full.ok, true);
+  assert.equal(full.model.data.completions.length, 2345, "keine stille Kappung bei 1000");
 });
 
 test("Service: Fehlerarten network / not_found / incomplete", async () => {
   assert.deepEqual(await loadFamilyData(stubClient({ data: null, error: { message: "x" } }), "f"), { ok: false, kind: "network", error: "Daten konnten nicht geladen werden." });
   assert.equal((await loadFamilyData(stubClient(() => Promise.reject(new Error("offline"))), "f")).kind, "network");
+  assert.equal((await loadFamilyData(stubClient({ data: rawFamily(), error: null }, { historyError: { message: "x" } }), "f")).kind, "network");
   assert.equal((await loadFamilyData(stubClient({ data: null, error: null }), "f")).kind, "not_found");
   const inc = await loadFamilyData(stubClient({ data: rawFamily({ family_settings: null }), error: null }), "f");
   assert.equal(inc.kind, "incomplete");

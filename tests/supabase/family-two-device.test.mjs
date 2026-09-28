@@ -8,6 +8,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
 import { loadFamilyData } from "../../src/lib/familyData.js";
@@ -131,6 +132,7 @@ for (const x of R) console.log(`${x.ok ? "✅" : "❌"} ${x.n}${x.ok || !x.d ? "
 const failed = R.filter((x) => !x.ok).length;
 console.log(`\n${R.length - failed}/${R.length} bestanden`);
 B.rt.stop(); B.sched.stop();
-await owner.from("families").delete().eq("id", familyId);
 await Promise.all([A.c, B.c].map((c) => c.removeAllChannels()));
+const cl = await deleteTestAccounts(cfg, [{ email, password }]);
+if (!cl.ok) console.log("WARNUNG: Aufräumen unvollständig");
 process.exit(failed ? 1 : 0);

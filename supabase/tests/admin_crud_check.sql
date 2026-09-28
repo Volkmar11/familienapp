@@ -67,10 +67,15 @@ begin
   exception when others then ok := true; msg := sqlerrm; end;
   insert into t_results(test,pass,detail) values ('A: letztes aktives Profil deaktivieren blockiert', ok, msg);
   fa2 := public.create_family('RLS-Test A2');
-  delete from public.families where id = fa2; get diagnostics n = row_count;
-  insert into t_results(test,pass,detail) values ('A: owner darf eigene Familie löschen', n = 1, n::text);
-  delete from public.families where id = fa; get diagnostics n = row_count;
-  insert into t_results(test,pass,detail) values ('A: Familie mit Profilen/Verlauf löschen (Kaskade trotz Schutz-Trigger)', n = 1, n::text);
+  -- Seit Phase 6A (release_hardening): kein direktes DELETE auf families mehr – nur Lifecycle-Pfad
+  begin delete from public.families where id = fa2; get diagnostics n = row_count; ok := n = 0; msg := n::text || ' Zeilen';
+  exception when others then ok := true; msg := sqlerrm; end;
+  insert into t_results(test,pass,detail) values ('A: owner kann Familie NICHT direkt löschen (nur Edge Function delete-family)', ok, msg);
+  -- Service-Pfad (delete-family → delete_family_as_service): Kaskade trotz Profil-Schutz-Trigger
+  execute 'reset role';
+  msg := public.delete_family_as_service(fa)::text;
+  n := case when not exists (select 1 from public.families where id = fa) and not exists (select 1 from public.profiles where family_id = fa) then 1 else 0 end;
+  insert into t_results(test,pass,detail) values ('Service-Pfad: Familie mit Profilen/Verlauf löschen (Kaskade trotz Schutz-Trigger)', n = 1, msg);
 
   execute 'set local role anon';
   perform set_config('request.jwt.claims', '{"role":"anon"}', true);
@@ -80,7 +85,7 @@ begin
 
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
-  delete from public.families where id in (fa, fb);
+  delete from public.families where id in (fa, fa2, fb);
   delete from auth.users where id in (ua, ub);
 end
 $$;

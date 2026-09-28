@@ -28,6 +28,7 @@ import {
 } from "./lib/legacyMigration.mjs";
 import { planMediaImports } from "./lib/legacyMedia.mjs";
 import * as Media from "../src/lib/familyMedia.js";
+import { deleteFamily, DELETE_FAMILY_PHRASE } from "../src/lib/accountLifecycle.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const BACKUP_DIR = path.join(ROOT, "local-backups");
@@ -152,7 +153,8 @@ async function signInOwner(client, env, log, allowCreate) {
   if (!/@example\.com$/i.test(creds.email)) throw new Error("Migrations-owner muss eine @example.com-Wegwerfadresse sein.");
   if (!/^\d{4}$/.test(creds.pin || "")) throw new Error("MIGRATION_TEST_PIN (4 Ziffern) fehlt.");
   const { data } = await client.auth.getUser();
-  return { id: data.user.id, pin: creds.pin };
+  // password nur im Speicher (für das Löschen der alten Testfamilie über delete-family), nie loggen
+  return { id: data.user.id, pin: creds.pin, password: creds.password };
 }
 
 const must = (res, what) => { if (res.error) throw new Error(`${what}: ${res.error.message}`); return res.data; };
@@ -163,11 +165,12 @@ async function insertChunks(client, tbl, rows, size = 200) {
 async function apply(client, owner, plan, log, media = null) {
   // 1. Nur die eigene, eindeutig markierte Migrationsfamilie entfernen (zuerst ihre Medien über die Storage-API)
   const old = must(await client.from("families").select("id").eq("name", MIGRATION_FAMILY_NAME).eq("created_by", owner.id), "Suche alte Testfamilie");
+  // Seit Phase 6A kein direktes DELETE auf families: Löschen über die Edge Function delete-family
+  // (owner + Test-PIN + frische Anmeldung; entfernt auch alle Medien der Familie).
   for (const f of old) {
-    const tree = await Media.removeFamilyMediaTree(client, f.id);
-    if (!tree.ok) throw new Error("Medien der alten Testfamilie konnten nicht entfernt werden.");
-    if (tree.removed) log(`Medien der alten Testfamilie entfernt: ${tree.removed}`);
-    must(await client.from("families").delete().eq("id", f.id).eq("created_by", owner.id), "Löschen alte Testfamilie");
+    const r = await deleteFamily(client, { familyId: f.id, password: owner.password, pin: owner.pin, phrase: DELETE_FAMILY_PHRASE });
+    if (!r.ok) throw new Error(`Löschen alte Testfamilie fehlgeschlagen: ${r.message || r.reason}`);
+    if (r.mediaRemoved) log(`Medien der alten Testfamilie entfernt: ${r.mediaRemoved}`);
   }
   log(`Alte Migrationsfamilie(n) entfernt: ${old.length}`);
 

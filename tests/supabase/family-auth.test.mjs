@@ -11,6 +11,7 @@ import { createFamilyClient } from "../../src/lib/supabaseFamily.js";
 import { createAuthService } from "../../src/lib/auth.js";
 import { fetchMemberships, classifyMemberships } from "../../src/lib/familyMembership.js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 
 const env = {
   VITE_FAMILY_SUPABASE_URL: process.env.SUPABASE_TEST_URL,
@@ -71,9 +72,9 @@ const { data: fam2 } = await client.rpc("create_family", { p_name: "P4A Testfami
 m = await fetchMemberships(client, userId);
 check("Mehrere Familien → multiple", m.ok && classifyMemberships(m.memberships) === "multiple" && m.memberships.length === 2);
 
-// Aufräumen: eigene Familien als owner löschen
-const del = await client.from("families").delete().in("id", [fam1, fam2]).select("id");
-check("Aufräumen: Testfamilien gelöscht", !del.error && del.data?.length === 2, del.error?.message);
+// Aufräumen (seit Phase 6A kein direktes DELETE auf families): Konto über delete-account löschen
+const del = await deleteTestAccounts(config, [{ email, password }]);
+check("Aufräumen: Konto + beide Testfamilien über delete-account gelöscht", del.ok && del.deletedFamilies === 2, JSON.stringify(del));
 await auth.signOut();
 
 for (const x of results) console.log(`${x.ok ? "PASS" : "FAIL"} | ${x.name}${x.ok || !x.detail ? "" : " | " + x.detail}`);

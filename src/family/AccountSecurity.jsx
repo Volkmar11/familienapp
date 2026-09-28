@@ -7,7 +7,8 @@ import { requestPasswordReset } from "../lib/auth.js";
 import { getAuthRedirectUrl } from "../lib/authRedirects.js";
 import { runtimeEnv } from "../config/backend.js";
 import { changePassword, deleteAccount, DELETE_ACCOUNT_PHRASE, phraseMatches } from "../lib/accountLifecycle.js";
-import { S, C, Shell, Header, Message } from "./ui.jsx";
+import { getLegalLinks } from "../config/legal.js";
+import { S, C, Shell, Header, Message, LegalLinks } from "./ui.jsx";
 
 const roleLabel = (r) => (r === "owner" ? "Inhaber:in" : r === "parent" ? "Elternteil" : r);
 const danger = "#b91c1c";
@@ -115,6 +116,7 @@ export default function AccountSecurity({ email, memberships = [], onClose, onLo
       </form>}
 
       {view === "overview" && <button style={S.link} onClick={onClose}>← Zurück zur App</button>}
+      {view === "overview" && <LegalLinks links={getLegalLinks(runtimeEnv)} />}
     </Shell>
   );
 }

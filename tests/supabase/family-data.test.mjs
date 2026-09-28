@@ -12,6 +12,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
 import { loadFamilyData } from "../../src/lib/familyData.js";
@@ -84,7 +85,9 @@ must(await A.c.from("task_assignments").insert({ family_id: f1, task_id: t1.id, 
 log.length = 0;
 const r1 = await loadFamilyData(A.c, f1);
 check("1 Owner lädt eigene Familie", r1.ok, r1.error);
-check("2 genau eine Leseanfrage (GET /rest/v1/families)", log.length === 1 && log[0].method === "GET" && log[0].path === "/rest/v1/families", JSON.stringify(log));
+// Seit Phase 6A: Stammdaten eingebettet (families) + Verläufe paginiert (max_rows-sicher) → 4 Lese-, 0 Schreibanfragen
+const paths2 = log.map((x) => x.path).sort();
+check("2 Laden = 4 Leseanfragen (families + completions/redemptions/champion_history)", log.length === 4 && log.every((x) => x.method === "GET") && JSON.stringify(paths2) === JSON.stringify(["/rest/v1/champion_history", "/rest/v1/completions", "/rest/v1/families", "/rest/v1/redemptions"]), JSON.stringify(log));
 const d = r1.model?.data;
 check("3 drei Profile in Reihenfolge, keine Elternprofile als Spieler", d?.members.map((m) => m.name).join() === "Alex,Sam,Kim" && d.members.every((m) => !m.isAdmin && !m.isParentPlayer));
 check("4 Aufgaben/Kategorien/Belohnungen vollständig", d?.tasks.length === tasks.length && d.rewards.length === rewards.length && d.customCategories.length > 0 && d.tasks.every((t) => t.category));
@@ -111,7 +114,7 @@ check("16 anonym: kein Zugriff (Rechtefehler oder leer, keine Daten)", !ra.ok &&
 
 log.length = 0;
 for (const [c, f] of [[A.c, f1], [A.c, f2], [B.c, fB], [B.c, f1]]) await loadFamilyData(c, f);
-check("17 Laden erzeugt keine Schreibanfragen (nur GET)", log.length === 4 && log.every((x) => x.method === "GET"), JSON.stringify(log.map((x) => x.method)));
+check("17 Laden erzeugt keine Schreibanfragen (nur GET)", log.length === 16 && log.every((x) => x.method === "GET"), JSON.stringify(log.map((x) => x.method)));
 
 // Unveränderte Daten nach dem Laden
 const after = must(await A.c.from("completions").select("status").eq("family_id", f1), "after");
@@ -124,7 +127,7 @@ if (process.env.KEEP === "1" && process.env.CRED_OUT) {
   fs.writeFileSync(process.env.CRED_OUT, JSON.stringify({ a: { email: A.email, password: A.password }, b: { email: B.email, password: B.password }, f1, f2, fB }));
   console.log("KEEP=1: Testdaten bleiben erhalten (Zugangsdaten nur in CRED_OUT).");
 } else {
-  for (const [c, f] of [[A.c, f1], [A.c, f2], [B.c, fB]]) await c.from("families").delete().eq("id", f);
-  console.log("Wegwerf-Familien gelöscht; Auth-Konten per SQL entfernen (siehe Kopfkommentar).");
+  const cl = await deleteTestAccounts(cfg, [A, B]);
+  console.log(cl.ok ? `Wegwerf-Konten und ${cl.deletedFamilies} Familien über delete-account gelöscht.` : "WARNUNG: Aufräumen unvollständig");
 }
 process.exit(failed ? 1 : 0);

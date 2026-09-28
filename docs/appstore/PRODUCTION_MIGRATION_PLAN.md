@@ -1,99 +1,156 @@
 # Produktionsmigration – Plan (NICHT ausgeführt)
 
-Stand: Phase 5A (28.09.2026). Dieses Dokument beschreibt die spätere, sichere Umstellung der
-LEGACY-Familie (`public.app_state`, `id = family-main`) auf das FAMILY-Modell. **Nichts davon ist
-ausgeführt.** Die Produktion läuft unverändert als LEGACY.
+- **Stand:** Phase 6A (28.09.2026). Ersetzt den Plan aus Phase 5A.
+- Beschreibt die spätere, sichere Umstellung der LEGACY-Familie (`public.app_state`, `id = family-main`) auf das FAMILY-Modell im **selben** Supabase-Projekt `gkkzjmszcjivtaygbmfw`.
+- **Nichts davon ist ausgeführt.** Die Produktion läuft unverändert als LEGACY.
+- **Schritt-für-Schritt mit STOP/GO:** `PRODUCTION_CUTOVER_RUNBOOK.md`.
 
-Voraussetzung ist der erfolgreiche Migrationstest (siehe `PHASE_05A_LEGACY_MIGRATION_TEST.md`):
-alle Punkte-Diffs 0, alle Counts erklärt, Champion-Sync ohne falsche Zeremonie.
+**Grundlagen:**
 
-## 1. Finales frisches Backup
+- Migrationstest 5A: Punkte-Diffs 0
+- Fresh-DB-Rehearsal und Schema-Drift-Analyse 6A: Schema aus dem Repo reproduzierbar, einzige Drift ist die Testhilfe `legacy_import_redemptions`
+- Release-Härtung 6A (`families_delete` entfernt)
 
-* Kurz vor der Umstellung READ-ONLY `select id, data, updated_at from public.app_state where id = 'family-main';` ausführen und unter `local-backups/family-main-<timestamp>.json` speichern (ignoriert).
-* Zusätzlich einen Supabase-Datenbank-Export (Dashboard-Backup oder PITR-Zeitpunkt notieren).
-* SHA-256 und `updated_at` notieren. Das Backup wird nicht verändert und nicht committet.
-* Dry-Run mit diesem Backup: `node scripts/migrate-legacy-family.mjs --dry-run --backup <datei>`. Keine Validierungsfehler; neue Hinweise bewerten.
+**Ausgangslage Produktion** (lesend festgestellt, 6A):
 
-## 2. Wartungs-/Umstellungszeitpunkt
+- nur `public.app_state`, mit Policies für `public`: SELECT, INSERT, UPDATE
+- Realtime auf `app_state`
+- `pgcrypto` vorhanden; Supabase-Funktion `rls_auto_enable`
+- 0 Auth-Nutzer, 0 Buckets, keine Edge Functions, kein `supabase_migrations`-Schema
 
-* Zeitfenster **Montag**, nachdem LEGACY die Vorwoche ausgewertet hat. Idealerweise hat die App in dieser Woche schon einmal geöffnet (Marker = aktuelle Woche). So ist `last_champion_week = Marker − 7` eindeutig und es gibt keine offene Champion-Woche.
-* Die Familie vorab informieren: Während des Fensters (ca. 30 min) nichts eintragen.
-* LEGACY-Schreibzugriffe einfrieren, z. B. mit einem Wartungshinweis im LEGACY-Deployment oder durch das Entziehen der anon-Schreibrechte auf `app_state` für die Dauer des Fensters. Die genaue Variante wird vorher festgelegt.
-* Das finale Backup (Schritt 1) wird **nach** dem Einfrieren gezogen.
+---
 
-## 3. FAMILY-Schema in Produktion anwenden
+## PRE-FLIGHT
 
-* Die Migrationen `supabase/migrations/20260927120000…` bis `20260928300000…` der Reihe nach anwenden. Vorher `app.migration_target` bewusst auf den Produktionswert anpassen; die Schutzabfrage verlangt heute `test`, sie wird für die Produktion gezielt geändert und reviewt.
-* `public.app_state` bleibt unangetastet: kein DROP, keine Änderung an RLS oder Realtime von `app_state`.
-* Nach dem Anwenden:
-  * Security Advisor prüfen.
-  * RLS-Matrix-Test (`supabase/tests/rls_matrix_test.sql`) in einer Transaktion mit ROLLBACK ausführen.
-  * Realtime-Publikation von `family_sync` prüfen.
-* Für die Einlösungen ist ein **temporärer** Importweg nötig. Möglich ist entweder eine Variante von `legacy_import_redemptions` mit denselben Schutzregeln (owner, Zielfamilie, einmalig), die direkt nach dem Import wieder mit DROP entfernt wird, oder ein einmaliger privilegierter SQL-Import durch den Projektinhaber. Diese Entscheidung ist vor der Umstellung zu treffen und zu reviewen.
+1. **Code Freeze:**
+   - `feature/appstore-v1` eingefroren, nur Blocker-Fixes
+   - Release-Commit festgelegt und getaggt (z. B. `release-family-1.0.0`)
+2. **Tests grün** auf dem Release-Commit:
+   - Unit
+   - alle Integrationssuites gegen das Testprojekt
+   - Browser-, Zwei-Geräte- und Legacy-Regression
+   - `node scripts/check-release-readiness.mjs --profile production` mit den Produktionswerten: 0 FAIL
+3. **Frisches `family-main`-Backup** nach dem Einfrieren (Schritt 6):
+   - READ-ONLY `select id, data, updated_at from public.app_state where id = 'family-main';`
+   - speichern unter `local-backups/family-main-<timestamp>.json` (ignoriert, nie committen)
+   - zusätzlich Supabase-Datenbank-Backup bzw. PITR-Zeitpunkt notieren
+4. **Backup-Hash:** SHA-256, `updated_at` und Dateigröße notieren. Dry-Run: `node scripts/migrate-legacy-family.mjs --dry-run --backup <datei>` ohne Validierungsfehler.
+5. **Punkte-Referenzexport** aus dem finalen Backup berechnen (`--reference`), lokal und ignoriert. Er enthält je Profil anonym: heute, Woche, Monat, gesamt, eingelöst, verfügbar, Champion-Anzahl.
+6. **Wartungsfenster:**
+   - Montag nach der Wochenauswertung, Familie vorab informiert, etwa 60 min
+   - LEGACY-Schreibzugriffe einfrieren, bevorzugt per temporärem Wartungshinweis-Deployment bzw. Schreibsperre
+   - Variante vorher festlegen und reviewen
 
-## 4. Eltern-Auth-Konto
+## BACKEND
 
-* Ein Elternteil registriert sich in der FAMILY-App mit einer echten E-Mail-Adresse. Die E-Mail-Bestätigung und die Redirect-URLs sind vorher eingerichtet.
-* Dieses Konto wird owner der migrierten Familie. Ein zweites Elternkonto folgt später über Einladungen.
-* Eine neue Eltern-PIN wählt die Familie selbst. Die alte Klartext-PIN wird **nicht** übernommen.
-* Familienname: echter Name statt „Migration Test“. Das Skript bekommt dafür einen expliziten Produktionsmodus mit anderem Namen und ohne Löschen. Es löscht in Produktion **nie** eine Familie.
+7. **Produktionsschema:**
+   - über das **Produktions-Bootstrap** (siehe Audit 6A, Abschnitt 3): generiert aus den unveränderten Repo-Migrationen 1–9 inklusive `release_hardening`, eine Transaktion
+   - eigener Guard (`app.migration_target = 'production'`, `families` existiert noch nicht, `app_state` existiert)
+   - Vorher-/Nachher-Fingerabdruck von `app_state` gleich
+   - Vorher: Bootstrap-Probelauf lokal und auf einem Wegwerf- bzw. Branch-Projekt mit identischem Fingerabdruck (`supabase/tests/schema_fingerprint.sql`)
+   - Danach in Produktion:
+     - `release_hardening_check.sql` und `rls_matrix_test.sql` (mit ROLLBACK)
+     - Security Advisor
+     - Fingerabdruck identisch zum Zielschema C
+8. **Storage:** Der Bucket `family-media` (privat, Größen- und MIME-Grenzen) und seine Policies entstehen durch das Bootstrap (Migration 6). Prüfen: Bucket privat, Policies vorhanden.
+9. **Realtime:**
+   - `family_sync` und `user_membership_sync` sind in `supabase_realtime` (Bootstrap)
+   - `app_state` bleibt vorerst in der Publikation (Rollback-Fähigkeit)
+10. **Auth-Einstellungen** (Soll siehe Audit 6A, Abschnitt 11):
+    - Confirm Email AN
+    - Mindestpasswort 8
+    - Leaked Password Protection AN
+    - Site URL und Redirect URLs (Produktions-Domain inklusive `/?invite=*`)
+    - Rate-Limits nach SMTP
+11. **Edge Functions:**
+    - `delete-account` und `delete-family` aus dem Release-Commit mit `verify_jwt = true`
+    - Hash bzw. Version notieren
+    - Probe: ohne Token 401, fremde Origin ohne CORS-Freigabe
+12. **Secrets:**
+    - `WC_ALLOWED_ORIGINS` = Produktions-Origin (später `capacitor://localhost`)
+    - optional `WC_ALLOW_DEV_ORIGINS=0` (Code-Änderung 6B)
+    - Supabase stellt `SUPABASE_*` bereit
+    - **keine** Secrets in Vercel oder im Repo
+13. **SMTP:**
+    - Anbieter nach Nutzerentscheidung
+    - Absenderdomain mit SPF, DKIM und DMARC
+    - deutsche Templates aus `AUTH_MAIL_TEMPLATES.md`
+    - Testmail „Bestätigung“ und „Reset“ an eine eigene Adresse
 
-## 5. Migration
+## MIGRATION
 
-* Das Skript für die Produktion erweitern:
-  * eigener Modus mit doppelter Bestätigung
-  * Ziel-Ref explizit per Parameter
-  * kein Wegwerf-owner, sondern die Anmeldung des echten Elternkontos
-  * kein Delete/Recreate: Abbruch, falls für dieses Konto schon eine Familie existiert
-* Ablauf wie im Test:
-  1. Onboarding-RPC
-  2. `is_parent`
-  3. Kategorien, Aufgaben, Belohnungen und Zuordnungen
-  4. Erledigungen
-  5. Einlösungen (temporärer Importweg)
-  6. Champion-Historie
-  7. `last_champion_week`
-* Die Mapping-Datei (Legacy-ID → neue UUID) lokal und ignoriert sichern.
+14. **Owner-Auth-Konto:**
+    - Ein Elternteil registriert sich in der FAMILY-App (Preview, die auf Produktion zeigt, **oder** lokaler Build) mit echter E-Mail und bestätigt sie.
+    - Neue Eltern-PIN; die alte Klartext-PIN wird nicht übernommen.
+    - Zweites Elternkonto erst **nach** der Abnahme per Einladung.
+15. **Datenimport:**
+    - `scripts/migrate-legacy-family.mjs` bekommt in 6B einen eigenen **Produktionsmodus**:
+      - explizite Ziel-Ref, doppelte Bestätigung
+      - Anmeldung des echten owner-Kontos, **kein Delete/Recreate**
+      - Abbruch, falls für das Konto schon eine Familie existiert
+    - Reihenfolge wie im Test:
+      1. Onboarding-RPC
+      2. `is_parent`
+      3. Kategorien, Aufgaben, Belohnungen und Zuordnungen
+      4. Erledigungen
+      5. Einlösungen (Schritt 17)
+      6. Champion-Historie
+      7. `last_champion_week`
+    - Mapping-Datei lokal und ignoriert.
+16. **Medienimport:** Profil- und Aufgabenbilder aus dem Backup (Base64) werden clientseitig zu JPEG, **ohne Metadaten**, verarbeitet und in den privaten Bucket geladen. Pfade werden gesetzt, Anzahl geprüft.
+17. **Historische Einlösungen:**
+    - über die **temporäre** Funktion `legacy_import_redemptions`, Produktionsvariante: feste `family_id`, Ablaufzeit, owner, einmalig
+    - im Fenster anlegen → Import → **sofort `drop function`**
+    - Nachweis per Fingerabdruck
+    - Anzahl und `points_spent`-Summe gleich Backup
+18. **Champions:**
+    - `champion_history` importiert, `last_champion_week` gesetzt
+    - `--sync-test`: kein Neuanlegen vorhandener Wochen, zweiter Aufruf wirkungslos, keine falsche Zeremonie
+19. **Punktediff = 0:**
+    - `--verify` gegen die Referenz (Schritt 5)
+    - je Profil alle Kennzahlen, Zeitreihe aller Wochen
+    - serverseitige Summe (bestätigt minus eingelöst) gleich verfügbar
+    - Die FAMILY-App lädt die vollständige Historie (Paginierung seit 6A).
+    - **Jede Abweichung ≠ 0 → kein Cutover.**
 
-## 6. Validierung
+## CUTOVER
 
-* `--verify` gegen eine **frisch** aus dem finalen Backup berechnete Referenz (`--reference`).
-* Count-Abgleich aller Tabellen. Erklärte Abweichungen wie im Test: ergänzte Kategorien und zusammengeführte Champion-Wochen.
-* `--sync-test`: `sync_weekly_champion` erzeugt keine vorhandene Woche neu; ein zweiter Aufruf ist wirkungslos.
-* Den temporären Einlöse-Importweg entfernen und die Entfernung prüfen.
+20. **Vercel FAMILY Production Env** (Werte vom Nutzer):
+    - `VITE_BACKEND_MODE=family`
+    - `VITE_FAMILY_SUPABASE_URL`, `VITE_FAMILY_SUPABASE_PUBLISHABLE_KEY` (Produktion)
+    - `VITE_AUTH_REDIRECT_URL`, `VITE_INVITE_BASE_URL`
+    - `VITE_PRIVACY_URL`, `VITE_IMPRINT_URL`, `VITE_SUPPORT_URL`
+    - **`VITE_SUPABASE_URL` und `VITE_SUPABASE_ANON_KEY` aus Production entfernen.** Der Guard in `backend.js` verweigert FAMILY, solange beide auf dasselbe Projekt zeigen.
+    - Kein Secret-Key.
+21. **Deploy:**
+    - Merge `feature/appstore-v1` → `main` erst nach Review und Freigabe
+    - bewusst ausgelöstes Production-Deployment
+    - das letzte LEGACY-Deployment bleibt in Vercel als Rollback-Ziel markiert (Werte sind eingebacken)
+22. **Smoke Test** (iPhone und Desktop), siehe Runbook:
+    - Anmeldung, Profile und Punkte gleich Abgleich
+    - Aufgabe erledigen
+    - Elternbereich mit PIN
+    - Einlösen und quittieren
+    - Champion-Historie, keine neue Zeremonie
+    - zweites Gerät (Realtime)
+    - Offline-Hinweis
+    - Bilder sichtbar
+    - Passwort-Reset-Mail kommt an
+    - Datenschutz- und Impressum-Links
 
-## 7. Punkteabgleich
+**Nach erfolgreicher Abnahme:**
 
-* Je Profil (anonym): heute, Woche, Monat, gesamt, eingelöst, verfügbar, bestätigte und offene Erledigungen, Champion-Anzahl. **Alle Diffs 0.**
-* Zeitreihe über alle historischen Wochen ohne Abweichung.
-* Serverseitige Summe (bestätigte Punkte − Einlösungen, Grundlage von `redeem_reward`) = verfügbare Punkte.
-* Bei einer Abweichung ungleich 0: **kein Go-Live**, sondern Ursache analysieren oder Rückfall (Schritt 10).
+- `app_state` für anon **sperren**: Policies INSERT und UPDATE entziehen, SELECT nur noch für Owner bzw. Admin oder ganz entziehen.
+- Tabelle mindestens 30 Tage unverändert als Archiv behalten.
 
-## 8. Vercel-Konfiguration
+## ROLLBACK
 
-* Production-Umgebungsvariablen:
-  * `VITE_BACKEND_MODE=family`
-  * `VITE_FAMILY_SUPABASE_URL=https://gkkzjmszcjivtaygbmfw.supabase.co`
-  * `VITE_FAMILY_SUPABASE_PUBLISHABLE_KEY=<Publishable Key Produktion>`
-* Kein Secret- oder `service_role`-Key.
-* Merge von `feature/appstore-v1` nach `main` erst nach Review. Das Production-Deployment wird bewusst ausgelöst; das LEGACY-Deployment bleibt als Rollback-Ziel in Vercel erhalten.
-
-## 9. Smoke Test
-
-Auf dem Handy der Familie (iPhone) und am Desktop:
-
-* Anmeldung, alle Profile sichtbar, verfügbare Punkte je Profil stimmen mit dem Abgleich überein
-* Aufgabe erledigen, Punkte steigen
-* Elternbereich mit PIN
-* Belohnung einlösen, Hinweis quittieren
-* Champion-Historie sichtbar, keine neue Zeremonie
-* zweites Gerät synchronisiert (Realtime)
-* Offline- und Reconnect-Hinweis
-
-## 10. Rückfallplan
-
-* Bis zum Ende des Smoke Tests bleibt `family-main` unverändert und ist die maßgebliche Quelle.
-* Rückfall: das vorherige LEGACY-Deployment in Vercel wieder zu Production machen (Instant Rollback) und die Schreibsperre von Schritt 2 aufheben. LEGACY arbeitet mit dem unveränderten `app_state` weiter.
-* Die FAMILY-Daten der gescheiterten Migration bleiben zur Analyse stehen und werden erst nach einer Entscheidung gelöscht.
-* Nach dem erfolgreichen Go-Live bleibt `app_state` mindestens 30 Tage **read-only** erhalten, bevor über das Archivieren entschieden wird.
-* Offene Punkte vor der Produktion: Bilder (Supabase Storage), Passwort-Reset-Redirects, Kontolöschung, Eltern-Einladungen und die Entscheidung zum Einlöse-Importweg.
+23. **Sofortige Rückschaltung auf LEGACY:**
+    - Vercel Instant Rollback auf das markierte LEGACY-Deployment
+    - Schreibsperre aus Schritt 6 aufheben
+    - LEGACY arbeitet mit dem unveränderten `app_state` weiter
+24. **`family-main` bleibt** bis zur erfolgreichen Abnahme unangetastet und ist die maßgebliche Quelle. Das Bootstrap und der Import verändern `app_state` nicht (Fingerabdruck-Nachweis).
+25. **Kein vorschnelles Löschen:**
+    - FAMILY-Daten eines gescheiterten Versuchs bleiben zur Analyse stehen.
+    - Löschen nur nach Entscheidung, und dann über `delete-family` (Medien!).
+    - `app_state` frühestens nach 30 Tagen archivieren, nie ohne Backup.

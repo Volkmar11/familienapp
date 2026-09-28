@@ -11,6 +11,7 @@
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { getFamilyConfig } from "../../src/config/backend.js";
+import { deleteTestAccounts } from "./_cleanup.mjs";
 import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
 import { loadFamilyData } from "../../src/lib/familyData.js";
@@ -25,10 +26,10 @@ console.error = () => {}; // erwartete Fehlerpfade nicht ausgeben
 const R = []; const check = (group, n, ok, d = "") => R.push({ group, n, ok: !!ok, d });
 const stamp = Date.now();
 async function user(tag) {
-  const c = mk(); const email = `wc-p4c2b1-${tag}-${stamp}@example.com`;
-  const r = await c.auth.signUp({ email, password: randomUUID() });
+  const c = mk(); const email = `wc-p4c2b1-${tag}-${stamp}@example.com`, password = randomUUID();
+  const r = await c.auth.signUp({ email, password });
   if (r.error || !r.data.session) throw new Error("signUp fehlgeschlagen: " + r.error?.message);
-  return { c, id: r.data.user.id };
+  return { c, id: r.data.user.id, email, password };
 }
 async function onboard(u, name, kids) {
   const s = initialOnboardingState(); s.familyName = name;
@@ -220,7 +221,9 @@ check("Quittierung", "points_spent/acknowledged_by nicht manipulierbar", ack2.ac
 for (const x of R) console.log(`${x.ok ? "✅" : "❌"} [${x.group}] ${x.n}${x.ok || !x.d ? "" : " – " + x.d}`);
 const failed = R.filter((x) => !x.ok).length;
 console.log(`\n${R.length - failed}/${R.length} bestanden`);
-for (const [c, fam] of [[A.c, f], [B.c, fB]]) await c.from("families").delete().eq("id", fam);
-const left = await one(A.c.from("families").select("id").eq("id", f));
-console.log(left.length === 0 ? "Wegwerf-Familien gelöscht (Kaskade trotz Profil-Schutz-Trigger ok)." : "WARNUNG: Familie nicht gelöscht");
-process.exit(failed || left.length ? 1 : 0);
+// Direktes DELETE auf families ist seit Phase 6A gesperrt; Aufräumen über delete-account
+const directDel = await A.c.from("families").delete().eq("id", f).select("id");
+const cl = await deleteTestAccounts(cfg, [A, B]);
+const cleanOk = !!directDel.error && cl.ok && cl.deletedFamilies === 2;
+console.log(cleanOk ? "Direktes Löschen gesperrt; Wegwerf-Familien über delete-account gelöscht (Kaskade trotz Profil-Schutz-Trigger ok)." : `WARNUNG: Aufräumen unvollständig ${JSON.stringify(cl)}`);
+process.exit(failed || !cleanOk ? 1 : 0);
