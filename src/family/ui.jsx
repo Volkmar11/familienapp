@@ -50,7 +50,6 @@ export const S = {
 export function Shell({ children }) {
   return (
     <div style={S.page}>
-      <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       <style>{`
         *{-webkit-tap-highlight-color:transparent;box-sizing:border-box}
         body{margin:0;background:#1e1b4b}

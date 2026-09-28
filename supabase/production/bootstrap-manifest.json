@@ -1,0 +1,50 @@
+{
+  "manifestVersion": 1,
+  "description": "Freigegebene Quellmigrationen für den Produktions-Bootstrap (Phase 6B1). Änderungen an Migrationen erfordern eine bewusste, reviewte Aktualisierung dieses Manifests.",
+  "productionProjectRef": "gkkzjmszcjivtaygbmfw",
+  "testProjectRef": "otejitifgcrrwmudrnhs",
+  "testGuardSha256": "17c820abd3d771110f458233c6fc71df9c20080ddd6512d6e05c10a981655058",
+  "testGuardBytes": 234,
+  "migrations": [
+    {
+      "file": "20260927120000_family_architecture.sql",
+      "sha256": "8d6efae667d1e374ba1435a94e76115d5778aafeac13876bdcb23be0a80fe7c9"
+    },
+    {
+      "file": "20260927200000_family_onboarding.sql",
+      "sha256": "513f61330817c46c61e5c971a3c575bd014e49741423042645c674f9adc9d85e"
+    },
+    {
+      "file": "20260928100000_core_mutations.sql",
+      "sha256": "b11cee2866e3882d789970bac85ad41971b10cfb2b15e4d129e4da377b342e5f"
+    },
+    {
+      "file": "20260928200000_family_admin_crud.sql",
+      "sha256": "a8b16c31297fe8ec7ec9b1cf71dfd56e802d2e555749889e9157285c63895e81"
+    },
+    {
+      "file": "20260928300000_champion_realtime.sql",
+      "sha256": "94ede98e3751c38fe64955719a54dde0ee9488a536cbd2caa9ea09b20e7d3f11"
+    },
+    {
+      "file": "20260929100000_family_media_storage.sql",
+      "sha256": "989ca05a6f41e6ae87e1d8debee91a32a13a0e81643114ba6bebdff268b7fa8d"
+    },
+    {
+      "file": "20260929200000_account_lifecycle.sql",
+      "sha256": "b97a3628d71e56f56548240ea9e1621be59648442c2ebfd7929e04cac3eb8051"
+    },
+    {
+      "file": "20260929300000_family_invitations.sql",
+      "sha256": "08d52aca6cb42e42b5d19de9a85f3d5b2764841aedde3dbddcaf5fe47252b70c"
+    },
+    {
+      "file": "20260930100000_release_hardening.sql",
+      "sha256": "8cd075868428c7110ed725893a5fa436d03f87e45059d2ec48be25bf6d333774"
+    },
+    {
+      "file": "20260930200000_create_family_hardening.sql",
+      "sha256": "0d8fdedae1e6b12e443e981ca2dd93d4c91cf97881c59a0df80b82c335bf9d49"
+    }
+  ]
+}

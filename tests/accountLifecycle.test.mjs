@@ -58,8 +58,9 @@ test("Bestätigungstexte und Passwortregeln", () => {
   assert.equal(phraseMatches("LOESCHEN", DELETE_ACCOUNT_PHRASE), false);
   assert.equal(phraseMatches("familie löschen", DELETE_FAMILY_PHRASE), true);
   assert.match(validateNewPassword("123", "123"), /mindestens/);
-  assert.match(validateNewPassword("abcdef", "abcdeg"), /stimmen nicht/);
-  assert.equal(validateNewPassword("abcdef", "abcdef"), "");
+  assert.match(validateNewPassword("abcdefg", "abcdefg"), /mindestens 8/); // Phase 6B1: 7 Zeichen reichen nicht
+  assert.match(validateNewPassword("abcdefgh", "abcdefgx"), /stimmen nicht/);
+  assert.equal(validateNewPassword("abcdefgh", "abcdefgh"), "");
 });
 
 test("Re-Auth nutzt ausschließlich die E-Mail der aktuellen Sitzung", async () => {
@@ -73,12 +74,12 @@ test("Re-Auth nutzt ausschließlich die E-Mail der aktuellen Sitzung", async () 
 
 test("Passwort ändern: aktuelles Passwort prüfen, dann updateUser", async () => {
   const c = fakeClient();
-  assert.equal((await changePassword(c, { currentPassword: "alt123", newPassword: "neu4567", newPassword2: "neu4567" })).ok, true);
+  assert.equal((await changePassword(c, { currentPassword: "alt123", newPassword: "neu45678", newPassword2: "neu45678" })).ok, true);
   assert.deepEqual(c.log.map((l) => l[0]), ["signIn", "updateUser"]);
   const w = fakeClient({ signInError: { message: "Invalid login credentials" } });
-  assert.equal((await changePassword(w, { currentPassword: "falsch", newPassword: "neu4567", newPassword2: "neu4567" })).ok, false);
+  assert.equal((await changePassword(w, { currentPassword: "falsch", newPassword: "neu45678", newPassword2: "neu45678" })).ok, false);
   assert.ok(!w.log.some((l) => l[0] === "updateUser"));
-  assert.equal((await changePassword(fakeClient(), { currentPassword: "gleich1", newPassword: "gleich1", newPassword2: "gleich1" })).message, LIFECYCLE_MESSAGES.samePassword);
+  assert.equal((await changePassword(fakeClient(), { currentPassword: "gleich12", newPassword: "gleich12", newPassword2: "gleich12" })).message, LIFECYCLE_MESSAGES.samePassword);
 });
 
 test("Account löschen: Bestätigung → Re-Auth → Edge Function ohne Passwort/user_id → lokale Abmeldung", async () => {

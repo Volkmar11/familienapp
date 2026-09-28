@@ -13,6 +13,9 @@
 //                            Metadaten entfernen und in den privaten Bucket family-media laden
 //                            (profiles.photo_path / tasks.image_path). Ohne Option: Verhalten wie Phase 5A.
 //
+// Produktions-/Generalprobenmodus (Phase 6B1): --target=production|rehearsal, siehe scripts/lib/productionMigration.mjs
+//   und docs/appstore/PRODUCTION_CUTOVER_RUNBOOK.md. Ohne --target gilt ausschließlich der Testmodus unten.
+//
 // Umgebung (Secrets nur hier, nie in Dateien des Repos):
 //   MIGRATION_TARGET_URL, MIGRATION_TARGET_PUBLISHABLE_KEY, MIGRATION_TARGET_PROJECT_NAME (muss „test“ enthalten)
 //   optional MIGRATION_OWNER_EMAIL / MIGRATION_OWNER_PASSWORD / MIGRATION_TEST_PIN
@@ -29,6 +32,7 @@ import {
 import { planMediaImports } from "./lib/legacyMedia.mjs";
 import * as Media from "../src/lib/familyMedia.js";
 import { deleteFamily, DELETE_FAMILY_PHRASE } from "../src/lib/accountLifecycle.js";
+import { mainProduction, ProductionGuardError } from "./lib/productionMigration.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const BACKUP_DIR = path.join(ROOT, "local-backups");
@@ -85,6 +89,8 @@ const table = (rows) => rows.map((r) => r.join(" | ")).join("\n");
 // Hauptablauf. deps.createClient ist injizierbar (Tests: Dry-Run erzeugt keinen Client).
 // ---------------------------------------------------------------------------------------------
 export async function main(argv = process.argv.slice(2), env = process.env, deps = {}) {
+  // Phase 6B1: Produktions-/Generalprobenmodus ist ein eigener, strenger Codepfad (scripts/lib/productionMigration.mjs)
+  if (argv.some((a) => a.startsWith("--target="))) return mainProduction(argv, env, deps);
   const log = deps.log || ((...a) => console.log(...a));
   const modes = argv.filter((a) => MODES.includes(a));
   if (modes.length !== 1) throw new Error(`Genau ein Modus angeben: ${MODES.join(" | ")}`);
@@ -311,5 +317,5 @@ async function syncTest(client, state, now, log) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  main().then((r) => process.exit(r && r.ok === false ? 1 : 0)).catch((e) => { console.error("Abbruch:", e.message); process.exit(e instanceof MigrationGuardError ? 2 : 1); });
+  main().then((r) => process.exit(r && r.ok === false ? 1 : 0)).catch((e) => { console.error("Abbruch:", e.message); process.exit(e instanceof MigrationGuardError || e instanceof ProductionGuardError ? 2 : 1); });
 }

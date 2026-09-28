@@ -25,7 +25,8 @@ begin
          (ub, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'wc-rls-b-' || left(ub::text, 8) || '@example.com', now(), now());
   execute 'set local role authenticated';
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
-  fa := public.create_family('RLS-Test A');
+  -- create_family ist seit 6B1 nicht mehr für Clients ausführbar → als DB-Admin anlegen
+  execute 'reset role'; fa := public.create_family('RLS-Test A'); execute 'set local role authenticated';
   insert into public.profiles (family_id, name) values (fa, 'Kind A') returning id into pa;
   insert into public.categories (family_id, name) values (fa, 'Haushalt') returning id into ca;
   insert into public.tasks (family_id, category_id, title, points) values (fa, ca, 'Aufgabe A', 10) returning id into ta;
@@ -36,7 +37,8 @@ begin
   insert into t_results(test,pass,detail) values ('A: direkte Einlösung per INSERT blockiert', ok, msg);
 
   perform set_config('request.jwt.claims', json_build_object('sub', ub, 'role', 'authenticated')::text, true);
-  fb := public.create_family('RLS-Test B');
+  -- create_family ist seit 6B1 nicht mehr für Clients ausführbar → als DB-Admin anlegen
+  execute 'reset role'; fb := public.create_family('RLS-Test B'); execute 'set local role authenticated';
   insert into public.profiles (family_id, name) values (fb, 'Kind B') returning id into pb;
   insert into public.categories (family_id, name) values (fb, 'Haushalt') returning id into cb;
   insert into public.tasks (family_id, category_id, title, points) values (fb, cb, 'Aufgabe B', 10) returning id into tb;
@@ -66,7 +68,8 @@ begin
   begin update public.profiles set active = false where id = pa; ok := false; msg := 'kein Fehler';
   exception when others then ok := true; msg := sqlerrm; end;
   insert into t_results(test,pass,detail) values ('A: letztes aktives Profil deaktivieren blockiert', ok, msg);
-  fa2 := public.create_family('RLS-Test A2');
+  -- create_family ist seit 6B1 nicht mehr für Clients ausführbar → als DB-Admin anlegen
+  execute 'reset role'; fa2 := public.create_family('RLS-Test A2'); execute 'set local role authenticated';
   -- Seit Phase 6A (release_hardening): kein direktes DELETE auf families mehr – nur Lifecycle-Pfad
   begin delete from public.families where id = fa2; get diagnostics n = row_count; ok := n = 0; msg := n::text || ' Zeilen';
   exception when others then ok := true; msg := sqlerrm; end;

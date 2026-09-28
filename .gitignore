@@ -25,3 +25,6 @@ vite.config.*.timestamp-*
 
 # Hinweis: Ein künftiger ios/-Ordner (Capacitor) wird bewusst NICHT pauschal
 # ignoriert, da Teile des Xcode-Projekts versioniert werden müssen.
+
+# Produktionspaket-Artefakte (Bootstrap-SQL, Dry-Run-Nachweise, Referenzen) – nie committen
+local-release/

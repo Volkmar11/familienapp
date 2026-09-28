@@ -12,6 +12,8 @@ import { createAuthService } from "../../src/lib/auth.js";
 import { fetchMemberships, classifyMemberships } from "../../src/lib/familyMembership.js";
 import { getFamilyConfig } from "../../src/config/backend.js";
 import { deleteTestAccounts } from "./_cleanup.mjs";
+import { initialOnboardingState, buildOnboardingPayload, createFamilyWithOnboarding } from "../../src/lib/onboarding.js";
+import { STARTER_TASKS, STARTER_REWARDS } from "../../src/config/starterContent.js";
 
 const env = {
   VITE_FAMILY_SUPABASE_URL: process.env.SUPABASE_TEST_URL,
@@ -48,7 +50,7 @@ check("family_members ohne Familie → none", m.ok && classifyMemberships(m.memb
 r = await auth.signUp(email, password);
 check("Doppelte Registrierung → deutsche Fehlermeldung", !r.ok && /bereits ein Konto/.test(r.error), r.error);
 r = await auth.signUp(`wc-p4a-weak-${Date.now()}@example.com`, "123");
-check("Zu kurzes Passwort → deutsche Fehlermeldung", !r.ok && /mindestens 6/.test(r.error), r.error);
+check("Zu kurzes Passwort → deutsche Fehlermeldung (Minimum 8)", !r.ok && /mindestens 8/.test(r.error) && !/password/i.test(r.error), r.error);
 
 r = await auth.signOut();
 let s = await auth.getSession();
@@ -63,12 +65,23 @@ client = newClient(); // „Seite neu laden“
 s = await auth.getSession();
 check("Session-Wiederherstellung nach Neuladen", s.session?.user?.id === userId);
 
-// Familie anlegen (nur hier im Test, simuliert Phase 4B), dann Mitgliedschaft prüfen
-const { data: fam1, error: e1 } = await client.rpc("create_family", { p_name: "P4A Testfamilie 1" });
+// Familie anlegen über die Onboarding-RPC der App (create_family ist seit 6B1 für Clients gesperrt)
+async function onboard(name) {
+  const st = initialOnboardingState(); st.familyName = name; st.pin = st.pin2 = "4827";
+  st.children = [{ id: "0", name: "Kind", avatar: "🦊", color: "#16a34a" }];
+  STARTER_TASKS.forEach((t, i) => { st.tasks[t.key] = { selected: i < 1, points: "10" }; });
+  STARTER_REWARDS.forEach((x) => { st.rewards[x.key] = { selected: false, points: "10" }; });
+  st.settings = { showDailyCrown: true, requireConfirmation: false };
+  const r = await createFamilyWithOnboarding(client, randomUUID(), buildOnboardingPayload(st));
+  return { data: r.ok ? r.familyId : null, error: r.ok ? null : r.error };
+}
+const legacyRpc = await client.rpc("create_family", { p_name: "Direkt" });
+check("create_family ist für Clients nicht ausführbar (nur Onboarding-RPC)", !!legacyRpc.error, legacyRpc.error?.code);
+const { data: fam1, error: e1 } = await onboard("P4A Testfamilie 1");
 m = await fetchMemberships(client, userId);
 check("family_members mit einer Familie → single", !e1 && m.ok && classifyMemberships(m.memberships) === "single"
   && m.memberships[0].familyId === fam1 && m.memberships[0].role === "owner" && m.memberships[0].familyName === "P4A Testfamilie 1", JSON.stringify(m.memberships));
-const { data: fam2 } = await client.rpc("create_family", { p_name: "P4A Testfamilie 2" });
+const { data: fam2 } = await onboard("P4A Testfamilie 2");
 m = await fetchMemberships(client, userId);
 check("Mehrere Familien → multiple", m.ok && classifyMemberships(m.memberships) === "multiple" && m.memberships.length === 2);
 

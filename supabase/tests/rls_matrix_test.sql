@@ -32,8 +32,9 @@ begin
 
   -- ===== User A =====
   perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
-  fa := public.create_family('RLS-Test A');
-  insert into t_results(test,pass,detail) values ('A: create_family liefert UUID', fa is not null, '');
+  -- create_family ist seit 6B1 nicht mehr für Clients ausführbar → Testfamilien als DB-Admin anlegen
+  execute 'reset role'; fa := public.create_family('RLS-Test A'); execute 'set local role authenticated';
+  insert into t_results(test,pass,detail) values ('A: create_family (DB-Admin) liefert UUID', fa is not null, '');
   select count(*) into n from public.family_members where family_id = fa and user_id = ua and role = 'owner';
   insert into t_results(test,pass,detail) values ('A: automatisch owner', n = 1, n::text);
   select count(*) into n from public.family_settings where family_id = fa and show_daily_crown = true;
@@ -55,8 +56,8 @@ begin
 
   -- ===== User B =====
   perform set_config('request.jwt.claims', json_build_object('sub', ub, 'role', 'authenticated')::text, true);
-  fb := public.create_family('RLS-Test B');
-  insert into t_results(test,pass,detail) values ('B: create_family, andere UUID als A', fb is not null and fb <> fa, '');
+  execute 'reset role'; fb := public.create_family('RLS-Test B'); execute 'set local role authenticated';
+  insert into t_results(test,pass,detail) values ('B: create_family (DB-Admin), andere UUID als A', fb is not null and fb <> fa, '');
   select count(*) into n from public.family_members where family_id = fb and user_id = ub and role = 'owner';
   insert into t_results(test,pass,detail) values ('B: automatisch owner', n = 1, n::text);
   insert into public.profiles (family_id, name) values (fb, 'Kind B') returning id into pb;
@@ -105,14 +106,17 @@ begin
   insert into t_results(test,pass,detail) values ('A: eigene Settings durch B unverändert', n = 1, n::text);
   delete from public.family_members where user_id = ua and family_id = fa; get diagnostics n = row_count;
   insert into t_results(test,pass,detail) values ('A: owner kann nicht selbst austreten', n = 0, n::text);
-  fa2 := public.create_family('RLS-Test A2');
+  execute 'reset role'; fa2 := public.create_family('RLS-Test A2'); execute 'set local role authenticated';
   insert into t_results(test,pass,detail) values ('A: zweite Familie möglich (keine DB-Beschränkung)', fa2 is not null and fa2 <> fa, '');
-  delete from public.families where id = fa2; get diagnostics n = row_count;
-  insert into t_results(test,pass,detail) values ('A: owner darf eigene Familie löschen', n = 1, n::text);
-  begin perform public.create_family('   '); ok := false; msg := 'kein Fehler';
+  -- Seit 6A: kein direktes DELETE auf families (nur Edge Function delete-family)
+  begin delete from public.families where id = fa2; get diagnostics n = row_count; ok := n = 0; msg := n::text || ' Zeilen';
   exception when others then ok := true; msg := sqlerrm; end;
-  select count(*) into n from public.families;
-  insert into t_results(test,pass,detail) values ('A: ungültiger Name abgelehnt, nichts angelegt (atomar)', ok and n = 1, msg || ' / Familien=' || n);
+  insert into t_results(test,pass,detail) values ('A: owner kann Familie NICHT direkt löschen', ok, msg);
+  -- Seit 6B1: create_family für Clients gesperrt (App nutzt create_family_with_onboarding)
+  begin perform public.create_family('Neu'); ok := false; msg := 'kein Fehler';
+  exception when others then ok := sqlerrm like 'permission denied%'; msg := sqlerrm; end;
+  select count(*) into n from public.family_members where user_id = ua;
+  insert into t_results(test,pass,detail) values ('A: create_family als Client nicht ausführbar, nichts angelegt', ok and n = 2, msg || ' / Mitgliedschaften=' || n);
 
   -- ===== nicht angemeldet (authenticated ohne sub) =====
   perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
@@ -139,7 +143,7 @@ begin
   -- ===== Aufräumen (als Datenbank-Admin) =====
   execute 'reset role';
   perform set_config('request.jwt.claims', '', true);
-  delete from public.families where id in (fa, fb);
+  delete from public.families where id in (fa, fa2, fb);
   delete from auth.users where id in (ua, ub);
 end
 $$;

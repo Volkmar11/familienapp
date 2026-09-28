@@ -3,30 +3,19 @@
 // (SUPABASE_SERVICE_ROLE_KEY bzw. SUPABASE_SECRET_KEYS) und verlässt die Function nie.
 // Logs enthalten nur Aktionsnamen und Zähler – keine E-Mail-Adressen, keine Tokens, keine Passwörter.
 import { createClient, type SupabaseClient, type User } from "npm:@supabase/supabase-js@2";
+import { corsConfig, isAllowedOrigin as isAllowedOriginFor, corsHeaders as corsHeadersFor } from "./cors.js";
 
 export const MEDIA_BUCKET = "family-media";
 export const REAUTH_MAX_AGE_SECONDS = 300; // Passwort-Anmeldung höchstens 5 Minuten alt
 
-// Erlaubte Browser-Origins: lokale Entwicklung und Vercel-Previews dieses Projekts.
-// Weitere (Produktions-Domain, später capacitor://localhost) per Secret WC_ALLOWED_ORIGINS (kommagetrennt).
-const ORIGIN_PATTERNS = [
-  /^http:\/\/localhost(:\d+)?$/,
-  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-  /^https:\/\/familienapp-[a-z0-9-]+-volkmar11s-projects\.vercel\.app$/,
-];
+// CORS: Regeln in ./cors.js (Produktions-Origin per WC_APP_ORIGIN/WC_ALLOWED_ORIGINS,
+// localhost/Previews nur mit WC_ALLOW_DEV_ORIGINS=true bzw. automatisch im Testprojekt).
+const CORS = corsConfig((k: string) => Deno.env.get(k));
 export function isAllowedOrigin(origin: string | null): boolean {
-  if (!origin) return false;
-  const extra = (Deno.env.get("WC_ALLOWED_ORIGINS") || "").split(",").map((s) => s.trim()).filter(Boolean);
-  return ORIGIN_PATTERNS.some((re) => re.test(origin)) || extra.includes(origin);
+  return isAllowedOriginFor(origin, CORS);
 }
 export function corsHeaders(origin: string | null): Record<string, string> {
-  const h: Record<string, string> = {
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Vary": "Origin",
-  };
-  if (origin && isAllowedOrigin(origin)) h["Access-Control-Allow-Origin"] = origin;
-  return h;
+  return corsHeadersFor(origin, CORS);
 }
 export function json(body: unknown, status: number, origin: string | null): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders(origin), "Content-Type": "application/json" } });

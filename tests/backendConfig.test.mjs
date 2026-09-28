@@ -52,11 +52,13 @@ test("Legacy-Konfiguration liest die bisherigen Variablen", () => {
 test("Deutsche Auth-Fehlertexte", () => {
   assert.equal(toGermanAuthError({ message: "Invalid login credentials", code: "invalid_credentials" }), "E-Mail-Adresse oder Passwort ist falsch.");
   assert.match(toGermanAuthError({ message: "User already registered", code: "user_already_exists" }), /bereits ein Konto/);
-  assert.match(toGermanAuthError({ message: "Password should be at least 6 characters.", code: "weak_password" }), /mindestens 6/);
+  assert.match(toGermanAuthError({ message: "Password should be at least 6 characters.", code: "weak_password" }), /mindestens 8/);
+  assert.match(toGermanAuthError({ message: "Password is known to be weak and easy to guess, please choose a different one.", code: "weak_password" }), /Datenlecks/);
+  assert.doesNotMatch(toGermanAuthError({ message: "Password is known to be weak and easy to guess", code: "weak_password" }), /Password|weak/);
   assert.match(toGermanAuthError({ message: "Email rate limit exceeded", code: "over_email_send_rate_limit" }), /Zu viele Versuche/);
   assert.match(toGermanAuthError({ message: "Failed to fetch" }), /Keine Verbindung/);
   assert.match(toGermanAuthError({ message: "irgendwas" }), /nicht geklappt/);
-  assert.equal(MIN_PASSWORD_LENGTH, 6);
+  assert.equal(MIN_PASSWORD_LENGTH, 8); // Phase 6B1
 });
 
 test("Mitgliedschaften klassifizieren", () => {

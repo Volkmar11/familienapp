@@ -1178,7 +1178,6 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
   };
 
   return <div style={S.app}>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
     <style>{`
       @keyframes cFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
       @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}

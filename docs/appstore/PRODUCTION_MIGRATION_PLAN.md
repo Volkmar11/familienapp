@@ -68,7 +68,7 @@
     - Probe: ohne Token 401, fremde Origin ohne CORS-Freigabe
 12. **Secrets:**
     - `WC_ALLOWED_ORIGINS` = Produktions-Origin (später `capacitor://localhost`)
-    - optional `WC_ALLOW_DEV_ORIGINS=0` (Code-Änderung 6B)
+    - `WC_APP_ORIGIN` = Produktions-Origin; `WC_ALLOW_DEV_ORIGINS` nicht setzen (Standard in Produktion: aus; umgesetzt in 6B1, `supabase/functions/_shared/cors.js`)
     - Supabase stellt `SUPABASE_*` bereit
     - **keine** Secrets in Vercel oder im Repo
 13. **SMTP:**

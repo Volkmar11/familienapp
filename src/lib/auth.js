@@ -2,7 +2,9 @@
 // Im LEGACY-Modus wird diese Datei nicht geladen.
 import { getFamilyClient } from "./supabaseFamily.js";
 
-export const MIN_PASSWORD_LENGTH = 6; // Supabase-Standard-Mindestlänge
+// Mindestlänge für neue Passwörter (Registrierung, Passwort ändern, Recovery). Phase 6B1: 8 Zeichen.
+// Produktion: Supabase „Minimum password length“ ebenfalls auf 8 stellen (PRODUCTION_AUTH_CONFIG.md).
+export const MIN_PASSWORD_LENGTH = 8;
 
 // Supabase-Fehler → verständliches Deutsch (ohne technische Details oder Tokens)
 export function toGermanAuthError(error) {
@@ -11,6 +13,8 @@ export function toGermanAuthError(error) {
   const code = String(error.code || "").toLowerCase();
   if (code === "invalid_credentials" || msg.includes("invalid login credentials")) return "E-Mail-Adresse oder Passwort ist falsch.";
   if (code === "user_already_exists" || msg.includes("already registered") || msg.includes("already exists")) return "Für diese E-Mail-Adresse gibt es bereits ein Konto. Bitte melde dich an.";
+  // Leaked Password Protection (HaveIBeenPwned): eigene, verständliche Meldung
+  if (msg.includes("pwned") || msg.includes("known to be weak") || msg.includes("data breach") || msg.includes("leaked")) return "Dieses Passwort ist aus Datenlecks bekannt und daher nicht sicher. Bitte wähle ein anderes Passwort.";
   if (code === "weak_password" || msg.includes("password should be") || msg.includes("password is too")) return `Das Passwort ist zu schwach. Bitte mindestens ${MIN_PASSWORD_LENGTH} Zeichen verwenden.`;
   if (code === "email_address_invalid" || msg.includes("invalid email") || msg.includes("unable to validate email") || msg.includes("is invalid")) return "Bitte eine gültige E-Mail-Adresse eingeben.";
   if (code === "email_not_confirmed" || msg.includes("email not confirmed")) return "Bitte bestätige zuerst deine E-Mail-Adresse.";

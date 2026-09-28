@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BACKEND_MODES, resolveBackendMode, getFamilyConfig, runtimeEnv } from './config/backend.js'
+import './assets/fonts/fonts.css' // Schrift lokal (Phase 6B1, keine Google-Fonts-Anfrage)
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 const render = (el) => root.render(<React.StrictMode>{el}</React.StrictMode>)

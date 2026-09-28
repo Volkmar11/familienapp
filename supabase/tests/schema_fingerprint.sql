@@ -40,6 +40,14 @@ with items as (
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('public', 'private')
   union all
+  -- Funktionen normalisiert (ohne Kommentare/Leerraum): erkennt funktionale Drift auch dort, wo eine
+  -- Umgebung dieselbe Migration mit entfernten Kommentaren erhalten hat (Testprojekt, Phase 6B1-Befund)
+  select 'function_normalized', n.nspname || '.' || p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')',
+         md5(concat_ws('|', btrim(regexp_replace(regexp_replace(p.prosrc, '--[^\n]*', '', 'g'), '\s+', ' ', 'g')), p.prosecdef::text,
+                       coalesce(array_to_string(p.proconfig, ','), ''), p.provolatile, pg_get_function_result(p.oid)))
+    from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname in ('public', 'private')
+  union all
   -- Trigger
   select 'trigger', n.nspname || '.' || c.relname || '.' || t.tgname, md5(pg_get_triggerdef(t.oid))
     from pg_trigger t join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace

@@ -165,6 +165,7 @@ Stand: 28.09.2026, Branch `feature/appstore-v1`.
 | function / function_grant | 50 gegen 49 | **1 Abweichung** |
 
 - **Einzige Drift:** `public.legacy_import_redemptions(uuid, jsonb)` existiert nur im Testprojekt (5A-Testhilfe, `SECURITY DEFINER`, für `authenticated` ausführbar). Sie ist gewollt testprojektbezogen; siehe Abschnitte 6 und 7.
+- **Korrektur (Phase 6B1):** Der Vergleich über `pg_get_functiondef` war zu grob. Die Funktionsrümpfe im Testprojekt enthalten keine Kommentare (beim Anwenden per MCP entfernt), und der lokale Stub hatte keine `service_role`-Standardrechte. Normalisiert (ohne Kommentare/Leerraum, neue Kategorie `function_normalized`) sind alle 49 Funktionen identisch. Die fachliche Aussage bleibt: Einzige echte Drift ist die Testhilfe. Details: `PHASE_06B1_PRODUCTION_PACKAGE.md`, Abschnitt 4.
 - Die 6A-Härtung ist lokal und im Testprojekt identisch angewendet und in beiden per `release_hardening_check.sql` verifiziert (10/10).
 - **C (erwartetes Produktions-Zielschema)** = B plus Migration 9, **ohne** `legacy_import_redemptions`; `app_state` bleibt unverändert daneben.
 

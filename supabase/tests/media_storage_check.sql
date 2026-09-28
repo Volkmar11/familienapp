@@ -32,14 +32,16 @@ begin
 
     execute 'set local role authenticated';
     perform set_config('request.jwt.claims', json_build_object('sub', ua, 'role', 'authenticated')::text, true);
-    fa := public.create_family('Media-Test A');
+    -- create_family ist seit 6B1 nicht mehr für Clients ausführbar → als DB-Admin anlegen
+    execute 'reset role'; fa := public.create_family('Media-Test A'); execute 'set local role authenticated';
     insert into public.profiles (family_id, name) values (fa, 'Kind A') returning id into pa;
     insert into public.tasks (family_id, title, points) values (fa, 'Aufgabe A', 10) returning id into ta;
     pa_path := format('families/%s/profiles/%s/%s.jpg', fa, pa, gen_random_uuid());
     ta_path := format('families/%s/tasks/%s/%s.webp', fa, ta, gen_random_uuid());
 
     perform set_config('request.jwt.claims', json_build_object('sub', ub, 'role', 'authenticated')::text, true);
-    fb := public.create_family('Media-Test B');
+    -- create_family ist seit 6B1 nicht mehr für Clients ausführbar → als DB-Admin anlegen
+    execute 'reset role'; fb := public.create_family('Media-Test B'); execute 'set local role authenticated';
     insert into public.profiles (family_id, name) values (fb, 'Kind B') returning id into pb;
 
     -- C wird (als postgres) Elternteil (parent) in Familie A
