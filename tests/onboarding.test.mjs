@@ -107,7 +107,10 @@ test("FAMILY-Code: PIN wird nicht in Storage geschrieben oder geloggt", () => {
   const files = importGraph(path.join(ROOT, "src/family/FamilyApp.jsx"));
   for (const f of files) {
     const src = stripComments(fs.readFileSync(f, "utf8"));
-    assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB/, `Storage-Zugriff in ${path.relative(ROOT, f)}`);
+    // Einzige Ausnahme (Phase 5D): offener Einladungs-Token in sessionStorage – nie PIN, nie localStorage
+    const storageRe = f.endsWith(path.join("lib", "familyInvitations.js")) ? /localStorage|indexedDB/ : /localStorage|sessionStorage|indexedDB/;
+    assert.doesNotMatch(src, storageRe, `Storage-Zugriff in ${path.relative(ROOT, f)}`);
+    if (storageRe.source.startsWith("localStorage|indexedDB")) assert.doesNotMatch(src, /setItem\([^)]*pin/i, "PIN in sessionStorage");
     assert.doesNotMatch(src, /console\.(log|info|debug|warn|error)\([^)]*pin/i, `PIN-Logging in ${path.relative(ROOT, f)}`);
   }
 });

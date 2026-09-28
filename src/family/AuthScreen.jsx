@@ -2,12 +2,14 @@ import { useState } from "react";
 import { signIn, signUp, requestPasswordReset, MIN_PASSWORD_LENGTH } from "../lib/auth.js";
 import { getAuthRedirectUrl } from "../lib/authRedirects.js";
 import { runtimeEnv } from "../config/backend.js";
+import { getInviteSignupRedirect } from "../lib/familyInvitations.js";
 import { S, C, Shell, Header, Message } from "./ui.jsx";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // notice: Hinweis von außen (z. B. „Dein Account wurde gelöscht.“ oder abgelaufener Reset-Link)
-export default function AuthScreen({ notice = "", onNoticeShown }) {
+// inviteToken: offene Einladung (Phase 5D) → Hinweis; nach der Anmeldung geht der Einladungsfluss weiter
+export default function AuthScreen({ notice = "", onNoticeShown, inviteToken = null, onDiscardInvite }) {
   const [mode, setMode] = useState("login"); // login | register | forgot
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +37,9 @@ export default function AuthScreen({ notice = "", onNoticeShown }) {
         if (!r.ok) setError(r.error);
         // Bei Erfolg übernimmt der Auth-Listener in FamilyApp.
       } else if (mode === "register") {
-        const r = await signUp(email, password);
+        // Aus einer Einladung: Bestätigungslink (falls „Confirm Email“ aktiv) führt zurück zur Einladung
+        const redirect = inviteToken ? getInviteSignupRedirect(inviteToken, { env: runtimeEnv }) : null;
+        const r = await signUp(email, password, redirect ? { emailRedirectTo: redirect } : {});
         if (!r.ok) setError(r.error);
         else if (r.needsEmailConfirmation) setInfo("Fast geschafft! Bitte bestätige deine E-Mail-Adresse über den Link in der Mail und melde dich danach an.");
       } else {
@@ -56,6 +60,17 @@ export default function AuthScreen({ notice = "", onNoticeShown }) {
   return (
     <Shell>
       <Header subtitle="Familien-Aufgaben mit Punkten" />
+      {inviteToken && (
+        <div style={{ ...S.card, marginTop: 20 }} data-testid="invite-auth-banner">
+          <div style={{ fontSize: 18, fontWeight: 800 }}><span aria-hidden="true">✉️ </span>Du wurdest zu einer Familie eingeladen.</div>
+          <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>Melde dich an oder erstelle ein Konto. Danach kannst du die Einladung annehmen.</div>
+          <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+            <button type="button" style={S.btn(mode === "login" ? undefined : "rgba(255,255,255,0.12)", mode === "login" ? undefined : C.text)} onClick={() => switchTo("login")} disabled={busy}>Anmelden</button>
+            <button type="button" style={S.btn(mode === "register" ? undefined : "rgba(255,255,255,0.12)", mode === "register" ? undefined : C.text)} onClick={() => switchTo("register")} disabled={busy}>Konto erstellen</button>
+          </div>
+          {onDiscardInvite && <button type="button" style={{ ...S.link, marginTop: 6 }} onClick={onDiscardInvite} disabled={busy}>Einladung verwerfen</button>}
+        </div>
+      )}
       {mode !== "forgot" && (
         <div style={{ display: "flex", gap: 8, marginTop: 24 }} role="tablist">
           <button type="button" role="tab" aria-selected={mode === "login"} style={S.tab(mode === "login")} onClick={() => switchTo("login")} disabled={busy}>Anmelden</button>

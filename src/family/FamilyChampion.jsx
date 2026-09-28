@@ -21,6 +21,7 @@ import { createReloadScheduler } from "../lib/reloadScheduler.js";
 import { createFamilyRealtime } from "../lib/familyRealtime.js";
 import { onAppForeground } from "../lib/appLifecycle.js";
 import ChampionApp from "../shared/ChampionApp.jsx";
+import FamilyAdultsPanel from "./FamilyAdultsPanel.jsx";
 import { S, C, Shell, Header, Spinner, Message } from "./ui.jsx";
 
 const roleLabel = (r) => (r === "owner" ? "Inhaber:in" : r === "parent" ? "Elternteil" : r);
@@ -30,7 +31,7 @@ const OFFLINE_MSG = "Verbindung unterbrochen – Daten werden nach dem Wiederver
 const OFFLINE_HINT_AFTER_MS = 6000; // kurze Unterbrechungen nicht anzeigen
 const MEDIA_REFRESH_MS = 5 * 60 * 1000; // signierte URLs rechtzeitig vor Ablauf erneuern
 
-export default function FamilyChampion({ familyId, role, email, userId, canSwitchFamily, onSwitchFamily, onLogout, onOpenAccount, onMembershipChanged, onFamilyDeleted }) {
+export default function FamilyChampion({ familyId, role, email, userId, canSwitchFamily, onSwitchFamily, onLogout, onOpenAccount, onMembershipChanged, onFamilyDeleted, onFamilyLeft, onEnterInviteCode }) {
   const [state, setState] = useState({ status: "loading", model: null, error: "" }); // loading | loaded | error
   const [notice, setNotice] = useState(null);
   // PIN-Gate: Ablaufzeitpunkt nur im React-Speicher. Reload/Neustart/Logout/Familienwechsel
@@ -297,7 +298,10 @@ export default function FamilyChampion({ familyId, role, email, userId, canSwitc
       {adminUnlocked && <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Der Elternbereich sperrt sich nach 10 Minuten ohne Eltern-Aktion automatisch.</div>}
       <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={() => reload({ immediate: true })}>Daten neu laden</button>
       {canSwitchFamily && <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={onSwitchFamily}>Familie wechseln</button>}
+      {onEnterInviteCode && <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={onEnterInviteCode}>Einladungscode eingeben</button>}
       <button style={S.btn()} onClick={onLogout}>Abmelden</button>
+      {adminUnlocked && <FamilyAdultsPanel familyId={familyId} familyName={model.family.name} role={role}
+        onActivity={touchAdmin} onMembershipChanged={() => memberCbRef.current?.()} onLeft={() => onFamilyLeft?.()} />}
       {adminUnlocked && (role === "owner"
         ? <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(239,68,68,0.35)" }}>
             <div style={{ fontWeight: 800, color: "#fecaca" }}>Gefahrenzone</div>

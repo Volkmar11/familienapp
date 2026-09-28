@@ -11,7 +11,19 @@
 
 export const RETRY_MS = [1000, 2000, 5000, 10000, 30000];
 
-export function createFamilyRealtime({ client, familyId, onChange, onStatus, retryMs = RETRY_MS, setTimer = setTimeout, clearTimer = clearTimeout }) {
+export function createFamilyRealtime({ client, familyId, ...rest }) {
+  return createRowSyncRealtime({ client, table: "family_sync", column: "family_id", value: familyId, ...rest });
+}
+
+// Phase 5D: eigenes Mitgliedschafts-Signal (public.user_membership_sync, RLS: nur eigene Zeile).
+// Erreicht den Nutzer auch dann noch, wenn er gerade aus einer Familie entfernt wurde und
+// deshalb family_sync dieser Familie nicht mehr lesen darf.
+export function createMembershipRealtime({ client, userId, ...rest }) {
+  return createRowSyncRealtime({ client, table: "user_membership_sync", column: "user_id", value: userId, ...rest });
+}
+
+// Gemeinsamer Mechanismus: genau eine Zeile (Filter column=eq.value) einer Sync-Tabelle abonnieren.
+export function createRowSyncRealtime({ client, table, column, value, onChange, onStatus, retryMs = RETRY_MS, setTimer = setTimeout, clearTimer = clearTimeout }) {
   let channel = null;
   let stopped = false;
   let attempt = 0;
@@ -41,11 +53,11 @@ export function createFamilyRealtime({ client, familyId, onChange, onStatus, ret
   function subscribe() {
     if (stopped) return;
     setStatus(status === "disconnected" ? "disconnected" : "connecting");
-    const mine = client.channel(`family-sync:${familyId}:${Date.now()}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "family_sync", filter: `family_id=eq.${familyId}` }, (payload) => {
+    const mine = client.channel(`${table.replace(/_/g, "-")}:${value}:${Date.now()}`)
+      .on("postgres_changes", { event: "*", schema: "public", table, filter: `${column}=eq.${value}` }, (payload) => {
         if (stopped || channel !== mine) return;
-        const fid = payload?.new?.family_id ?? payload?.old?.family_id;
-        if (fid && fid !== familyId) return;   // Absicherung zusätzlich zu Filter + RLS
+        const v = payload?.new?.[column] ?? payload?.old?.[column];
+        if (v && v !== value) return;          // Absicherung zusätzlich zu Filter + RLS
         onChange?.("change");
       });
     channel = mine;

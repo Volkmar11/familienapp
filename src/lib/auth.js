@@ -23,8 +23,10 @@ export function toGermanAuthError(error) {
 export function createAuthService(getClient) {
   const sb = () => getClient();
   return {
-    async signUp(email, password) {
-      const { data, error } = await sb().auth.signUp({ email: email.trim(), password });
+    // emailRedirectTo (optional): Ziel des Bestätigungslinks, z. B. App-Herkunft + ?invite=<token>
+    // bei Registrierung aus einer Einladung. Muss in Supabase als Redirect-URL erlaubt sein.
+    async signUp(email, password, { emailRedirectTo } = {}) {
+      const { data, error } = await sb().auth.signUp({ email: email.trim(), password, ...(emailRedirectTo ? { options: { emailRedirectTo } } : {}) });
       if (error) return { ok: false, error: toGermanAuthError(error) };
       // Bei aktiver E-Mail-Bestätigung gibt es keine sofortige Session.
       return { ok: true, session: data.session ?? null, needsEmailConfirmation: !data.session };

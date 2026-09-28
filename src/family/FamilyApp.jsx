@@ -1,11 +1,15 @@
 // Einstieg im FAMILY-Modus: Session prüfen → Anmeldung → Familienmitgliedschaft.
 // Ohne Familie → Onboarding (Phase 4B). Mit Familie → Wochen-Champion-Oberfläche (Phase 4C1: read-only).
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { getSession, onAuthStateChange, signOut, updatePassword, MIN_PASSWORD_LENGTH } from "../lib/auth.js";
 import { getFamilyClient } from "../lib/supabaseFamily.js";
 import { fetchMemberships, classifyMemberships } from "../lib/familyMembership.js";
+import { capturePendingInvite, clearPendingInvite, setPendingInvite, INVALID_INVITE_MESSAGE } from "../lib/familyInvitations.js";
+import { createMembershipRealtime } from "../lib/familyRealtime.js";
+import { onAppForeground } from "../lib/appLifecycle.js";
 import AuthScreen from "./AuthScreen.jsx";
 import AccountSecurity from "./AccountSecurity.jsx";
+import { InviteScreen, InviteCodeScreen } from "./InviteScreen.jsx";
 import { isRecoveryRedirect, readAuthRedirectError, clearAuthParamsFromUrl } from "../lib/authRedirects.js";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import FamilyChampion from "./FamilyChampion.jsx";
@@ -23,7 +27,15 @@ export default function FamilyApp() {
   const [membership, setMembership] = useState({ status: "idle", list: [], error: "" }); // idle|loading|ready|error
   const [activeFamilyId, setActiveFamilyId] = useState(null);
   const [onboarding, setOnboarding] = useState(null); // { familyId|null } solange der Assistent inkl. Erfolgsseite sichtbar ist
+  // Einladung (5D): ?invite= wird beim Start gelesen, in sessionStorage abgelegt und aus der URL entfernt
+  const [invite, setInvite] = useState(() => capturePendingInvite());
+  const [codeEntry, setCodeEntry] = useState(false);
+  const [familyNotice, setFamilyNotice] = useState("");
+  const activeRef = useRef(null);
+  activeRef.current = activeFamilyId;
   const userId = session?.user?.id ?? null;
+  const inviteToken = invite?.token ?? null;
+  const dropInvite = () => { clearPendingInvite(); setInvite({ token: null, invalidParam: false }); };
 
   // 1) Session beim Start wiederherstellen + Auth-Änderungen verfolgen.
   // Im Listener nur State setzen (keine weiteren Supabase-Aufrufe → keine Deadlocks).
@@ -43,26 +55,80 @@ export default function FamilyApp() {
   }, []);
 
   // 2) Mitgliedschaften laden, sobald ein Nutzer angemeldet ist.
-  const loadMemberships = useCallback(async ({ silent = false, preferFamilyId = null } = {}) => {
+  // keepActive: aktive Familie beibehalten, sofern der Nutzer noch Mitglied ist. Fehlt sie
+  // (entfernt, Familie gelöscht), wird FamilyChampion ausgehängt → Realtime, PIN-Gate und
+  // Bild-Cache dieser Familie werden verworfen; es folgt Auswahl bzw. Onboarding.
+  const loadMemberships = useCallback(async ({ silent = false, preferFamilyId = null, keepActive = false } = {}) => {
     if (!userId) return;
     if (!silent) setMembership({ status: "loading", list: [], error: "" });
     const r = await fetchMemberships(getFamilyClient(), userId);
-    if (!r.ok) { setMembership({ status: "error", list: [], error: "Deine Familiendaten konnten nicht geladen werden." }); return; }
+    if (!r.ok) {
+      if (silent) return; // stilles Nachladen: bisherigen Stand behalten
+      setMembership({ status: "error", list: [], error: "Deine Familiendaten konnten nicht geladen werden." }); return;
+    }
     setMembership({ status: "ready", list: r.memberships, error: "" });
-    const preferred = preferFamilyId && r.memberships.some((m) => m.familyId === preferFamilyId) ? preferFamilyId : null;
+    const wanted = preferFamilyId ?? (keepActive ? activeRef.current : null);
+    const preferred = wanted && r.memberships.some((m) => m.familyId === wanted) ? wanted : null;
+    if (keepActive && activeRef.current && !preferred) {
+      // Aktive Familie weg → nicht still in eine andere Familie springen, sondern Hinweis + Auswahl
+      setFamilyNotice("Du hast keinen Zugriff mehr auf diese Familie.");
+      setActiveFamilyId(null);
+      return;
+    }
     setActiveFamilyId(preferred ?? (r.memberships.length === 1 ? r.memberships[0].familyId : null));
   }, [userId]);
+  const loadRef = useRef(loadMemberships);
+  loadRef.current = loadMemberships;
 
   useEffect(() => {
     if (userId) loadMemberships();
-    else { setMembership({ status: "idle", list: [], error: "" }); setActiveFamilyId(null); setOnboarding(null); }
+    else { setMembership({ status: "idle", list: [], error: "" }); setActiveFamilyId(null); setOnboarding(null); setCodeEntry(false); setFamilyNotice(""); }
   }, [userId, loadMemberships]);
+
+  // Mitgliedschafts-Realtime (5D): eigenes Signal je Nutzer (public.user_membership_sync).
+  // Beitritt, Rollenwechsel, Entfernen, Austritt, gelöschte Familie → Mitgliedschaften still neu laden.
+  useEffect(() => {
+    if (!userId) return undefined;
+    let timer = null;
+    const request = () => { clearTimeout(timer); timer = setTimeout(() => loadRef.current({ silent: true, keepActive: true }), 250); };
+    const rt = createMembershipRealtime({ client: getFamilyClient(), userId, onChange: request });
+    const stopForeground = onAppForeground(() => { rt.reconnectNow(); request(); });
+    return () => { clearTimeout(timer); rt.stop(); stopForeground(); };
+  }, [userId]);
 
   if (!authReady) return <Shell><Spinner label="Anmeldung wird geprüft …" /></Shell>;
   if (recovery && session) return <NewPasswordScreen onDone={() => { setRecovery(false); clearAuthParamsFromUrl(); }} />;
-  if (!session) return <AuthScreen notice={authNotice} onNoticeShown={() => setAuthNotice("")} />;
+  if (!session) {
+    const notice = authNotice || (invite?.invalidParam ? INVALID_INVITE_MESSAGE : "");
+    return <AuthScreen notice={notice} onNoticeShown={() => { setAuthNotice(""); if (invite?.invalidParam) setInvite({ token: inviteToken, invalidParam: false }); }}
+      inviteToken={inviteToken} onDiscardInvite={dropInvite} />;
+  }
 
   const email = session.user?.email ?? "";
+  if (invite?.invalidParam && !inviteToken) {
+    return (
+      <Screen email={email} title="Einladung" emoji="⚠️">
+        <Message kind="error">{INVALID_INVITE_MESSAGE}</Message>
+        <button style={S.btn()} onClick={() => setInvite({ token: null, invalidParam: false })}>Weiter</button>
+      </Screen>
+    );
+  }
+  // Offene Einladung hat Vorrang vor Onboarding/Familienansicht – kein automatischer Beitritt.
+  if (inviteToken && !accountOpen) {
+    return (
+      <InviteScreen
+        key={inviteToken}
+        token={inviteToken}
+        email={email}
+        onCancel={dropInvite}
+        onJoined={(familyId) => { dropInvite(); setOnboarding(null); setFamilyNotice(""); loadMemberships({ preferFamilyId: familyId }); }}
+      />
+    );
+  }
+  if (codeEntry && !accountOpen) {
+    return <InviteCodeScreen email={email} onCancel={() => setCodeEntry(false)}
+      onSubmit={(t) => { setCodeEntry(false); setInvite({ token: setPendingInvite(t), invalidParam: false }); }} />;
+  }
   // Konto & Sicherheit: überall erreichbar (Onboarding, Familienauswahl, Elternbereich)
   if (accountOpen) {
     return (
@@ -86,6 +152,7 @@ export default function FamilyApp() {
       }}
       onLogout={() => signOut()}
       onAccount={() => setAccountOpen(true)}
+      onJoinWithCode={() => setCodeEntry(true)}
     />
   );
   // Assistent bleibt inkl. Erfolgsseite sichtbar, auch während Mitgliedschaften neu geladen werden.
@@ -101,18 +168,27 @@ export default function FamilyApp() {
   }
 
   const kind = classifyMemberships(membership.list);
-  if (kind === "none") return wizard;
+  if (kind === "none") {
+    return familyNotice
+      ? <Screen email={email} title="Familie" emoji="🏠" onAccount={() => setAccountOpen(true)}>
+          <Message kind="info">{familyNotice}</Message>
+          <button style={S.btn()} onClick={() => setFamilyNotice("")}>Weiter</button>
+        </Screen>
+      : wizard;
+  }
 
   const activeFamily = membership.list.find((m) => m.familyId === activeFamilyId);
   if (!activeFamily) {
     return (
       <Screen email={email} title="Familie auswählen" emoji="🏠" onAccount={() => setAccountOpen(true)}>
-        <p style={{ color: C.muted, fontSize: 15, margin: "8px 0 4px" }}>Du gehörst zu mehreren Familien. Welche möchtest du öffnen?</p>
+        <Message kind="info">{familyNotice}</Message>
+        <p style={{ color: C.muted, fontSize: 15, margin: "8px 0 4px" }}>{membership.list.length > 1 ? "Du gehörst zu mehreren Familien. Welche möchtest du öffnen?" : "Welche Familie möchtest du öffnen?"}</p>
         {membership.list.map((m) => (
-          <button key={m.familyId} style={{ ...S.btn("rgba(255,255,255,0.1)", C.text), textAlign: "left", marginTop: 10 }} onClick={() => setActiveFamilyId(m.familyId)}>
+          <button key={m.familyId} style={{ ...S.btn("rgba(255,255,255,0.1)", C.text), textAlign: "left", marginTop: 10 }} onClick={() => { setFamilyNotice(""); setActiveFamilyId(m.familyId); }}>
             {m.familyName || "Familie"} <span style={{ color: C.muted, fontWeight: 500, fontSize: 13 }}>· {roleLabel(m.role)}</span>
           </button>
         ))}
+        <button style={{ ...S.link, marginTop: 10 }} onClick={() => setCodeEntry(true)}>Einladungscode eingeben</button>
       </Screen>
     );
   }
@@ -132,6 +208,8 @@ export default function FamilyApp() {
       // Rolle/Mitgliedschaft geändert (z. B. Ownership-Übergabe, Austritt, Familie gelöscht) → neu laden
       onMembershipChanged={() => loadMemberships({ silent: true, preferFamilyId: activeFamily.familyId })}
       onFamilyDeleted={() => { setActiveFamilyId(null); loadMemberships(); }}
+      onEnterInviteCode={() => setCodeEntry(true)}
+      onFamilyLeft={() => { setActiveFamilyId(null); setFamilyNotice("Du hast die Familie verlassen."); loadMemberships(); }}
     />
   );
 }

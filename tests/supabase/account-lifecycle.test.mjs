@@ -1,7 +1,7 @@
 // Integrationstest Phase 5C (Account löschen / Familie löschen) gegen das Supabase-TESTPROJEKT.
 // Nur Wegwerf-Konten „wc-p5c-…@example.com“ und Wegwerf-Familien; die Migrationsfamilie wird nie berührt.
 // Voraussetzungen im Testprojekt: Migration 20260929200000_account_lifecycle.sql, Edge Functions
-// delete-account und delete-family, Test-Hilfsfunktion supabase/test-support/add_family_member.sql.
+// delete-account und delete-family, Migration 20260929300000_family_invitations.sql (Beitritt über echte Einladungen).
 // Optional: TRACK_OUT=<Datei außerhalb des Repos> schreibt die IDs gelöschter Familien/Nutzer für eine
 // anschließende SQL-Prüfung (Kaskaden, Storage) · STALE=1 prüft zusätzlich die Frische-Regel (> 5 min Wartezeit).
 // Aufräumen danach per SQL: delete from public.families where created_by in (select id from auth.users where email like 'wc-p5c-%@example.com');
@@ -18,6 +18,7 @@ import * as M from "../../src/lib/familyMutations.js";
 import * as Media from "../../src/lib/familyMedia.js";
 import { deleteAccount, deleteFamily } from "../../src/lib/accountLifecycle.js";
 import { memberPointSummary } from "../../src/shared/points.js";
+import { createInvitation, acceptInvitation, promoteParent } from "../../src/lib/familyInvitations.js";
 
 if (!/test/i.test(process.env.SUPABASE_TEST_PROJECT_NAME || "")) { console.error("Abbruch: nur gegen das Testprojekt."); process.exit(2); }
 const cfg = getFamilyConfig({ VITE_FAMILY_SUPABASE_URL: process.env.SUPABASE_TEST_URL, VITE_FAMILY_SUPABASE_PUBLISHABLE_KEY: process.env.SUPABASE_TEST_PUBLISHABLE_KEY });
@@ -42,7 +43,12 @@ async function onboard(u, name) {
   s.settings = { showDailyCrown: true, requireConfirmation: true };
   const r = await createFamilyWithOnboarding(u.c, randomUUID(), buildOnboardingPayload(s)); if (!r.ok) throw new Error(r.error); return r.familyId;
 }
-const addMember = async (owner, fid, member, role = "parent") => { const r = await owner.c.rpc("test_add_family_member", { p_family_id: fid, p_email: member.email, p_role: role }); if (r.error) throw new Error(r.error.message); };
+// Seit Phase 5D über den echten Einladungsfluss (Test-Hintertür test_add_family_member entfernt)
+const addMember = async (owner, fid, member, role = "parent") => {
+  const inv = await createInvitation(owner.c, fid); if (!inv.ok) throw new Error(inv.error);
+  const acc = await acceptInvitation(member.c, inv.token); if (!acc.ok || acc.status !== "joined") throw new Error(acc.error || "Beitritt fehlgeschlagen");
+  if (role === "owner") { const p = await promoteParent(owner.c, fid, member.id); if (!p.ok) throw new Error(p.error); }
+};
 const blob = () => new Blob([JPEG], { type: "image/jpeg" });
 // Familie mit Daten: bestätigte Erledigung (Audit confirmed_by), Einlösung (quittiert), Profil- und Aufgabenbild
 async function seed(u, fid) {
