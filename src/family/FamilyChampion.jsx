@@ -14,6 +14,7 @@ import { getFamilyClient } from "../lib/supabaseFamily.js";
 import { loadFamilyData } from "../lib/familyData.js";
 import * as M from "../lib/familyMutations.js";
 import * as Media from "../lib/familyMedia.js";
+import { deleteFamily, DELETE_FAMILY_PHRASE, phraseMatches } from "../lib/accountLifecycle.js";
 import { PARENT_UNLOCK_MS, hasAdminRole, canAccessAdmin, unlockUntil } from "../lib/parentGate.js";
 import { toDateKey } from "../lib/dateUtils.js";
 import { createReloadScheduler } from "../lib/reloadScheduler.js";
@@ -29,7 +30,7 @@ const OFFLINE_MSG = "Verbindung unterbrochen – Daten werden nach dem Wiederver
 const OFFLINE_HINT_AFTER_MS = 6000; // kurze Unterbrechungen nicht anzeigen
 const MEDIA_REFRESH_MS = 5 * 60 * 1000; // signierte URLs rechtzeitig vor Ablauf erneuern
 
-export default function FamilyChampion({ familyId, role, email, canSwitchFamily, onSwitchFamily, onLogout }) {
+export default function FamilyChampion({ familyId, role, email, userId, canSwitchFamily, onSwitchFamily, onLogout, onOpenAccount, onMembershipChanged, onFamilyDeleted }) {
   const [state, setState] = useState({ status: "loading", model: null, error: "" }); // loading | loaded | error
   const [notice, setNotice] = useState(null);
   // PIN-Gate: Ablaufzeitpunkt nur im React-Speicher. Reload/Neustart/Logout/Familienwechsel
@@ -48,6 +49,11 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
   const championBusyRef = useRef(false);
   const offlineRef = useRef(false);
   const [bootKey, setBootKey] = useState(0);             // „Erneut versuchen“ startet den Lebenszyklus neu
+  const [deleteOpen, setDeleteOpen] = useState(false);   // Dialog „Familie dauerhaft löschen“ (nur owner)
+  const roleRef = useRef(role);
+  roleRef.current = role;
+  const memberCbRef = useRef(onMembershipChanged);
+  memberCbRef.current = onMembershipChanged;
 
   const client = getFamilyClient();
   // Signierte Bild-URLs: nur im Speicher, nur für diese Familie (Unmount = verwerfen)
@@ -62,7 +68,17 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     if (!refresh) setState({ status: "loading", model: null, error: "" });
     const r = await loadFamilyData(getFamilyClient(), familyId);
     if (disposedRef.current) return false;
-    if (r.ok) { setState({ status: "loaded", model: r.model, error: "" }); return true; }
+    if (r.ok) {
+      setState({ status: "loaded", model: r.model, error: "" });
+      // Eigene Rolle nach jedem Reload prüfen (Realtime meldet Änderungen an family_members):
+      // Ownership-Übergabe, Austritt oder gelöschte Familie → Mitgliedschaften neu laden.
+      if (refresh && userId) {
+        const m = await getFamilyClient().from("family_members").select("role").eq("family_id", familyId).eq("user_id", userId).maybeSingle();
+        if (!disposedRef.current && !m.error && (m.data?.role ?? null) !== roleRef.current) memberCbRef.current?.();
+      }
+      return true;
+    }
+    if (r.kind === "not_found") { memberCbRef.current?.(); }
     if (refresh) {
       // Aktion war erfolgreich, nur die Aktualisierung scheiterte: alte Daten behalten, Hinweis zeigen.
       setNotice({ id: Date.now(), text: "Die Anzeige konnte nicht aktualisiert werden. Bitte „Daten neu laden“." });
@@ -70,7 +86,7 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     }
     setState({ status: "error", model: null, error: r.error });
     return false;
-  }, [familyId]);
+  }, [familyId, userId]);
 
   const reload = (opts) => schedRef.current ? schedRef.current.request(opts) : Promise.resolve(false);
 
@@ -277,15 +293,25 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
       <div style={infoRow}><span>Familie</span><b>{model.family.name}</b></div>
       <div style={infoRow}><span>Deine Rolle</span><b>{roleLabel(role)}</b></div>
       <div style={infoRow}><span>Angemeldet als</span><b style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{email}</b></div>
+      {onOpenAccount && <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={onOpenAccount}>👤 Konto & Sicherheit</button>}
       {adminUnlocked && <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>Der Elternbereich sperrt sich nach 10 Minuten ohne Eltern-Aktion automatisch.</div>}
       <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={() => reload({ immediate: true })}>Daten neu laden</button>
       {canSwitchFamily && <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={onSwitchFamily}>Familie wechseln</button>}
       <button style={S.btn()} onClick={onLogout}>Abmelden</button>
+      {adminUnlocked && (role === "owner"
+        ? <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid rgba(239,68,68,0.35)" }}>
+            <div style={{ fontWeight: 800, color: "#fecaca" }}>Gefahrenzone</div>
+            <button style={{ ...S.btn("#b91c1c", "#fff"), marginTop: 8 }} onClick={() => setDeleteOpen(true)}>Familie dauerhaft löschen …</button>
+          </div>
+        : <div style={{ fontSize: 12, color: C.muted, marginTop: 12 }} data-testid="family-delete-owner-only">Nur die Inhaberin bzw. der Inhaber kann die Familie löschen.</div>)}
     </div>
   );
 
   return (<>
     {offline && <div role="status" data-testid="offline-hint" style={offlineStyle}>{OFFLINE_MSG}</div>}
+    {deleteOpen && role === "owner" && <DeleteFamilyDialog familyId={familyId} familyName={model.family.name}
+      onCancel={() => setDeleteOpen(false)}
+      onDeleted={() => { setDeleteOpen(false); onFamilyDeleted?.(); }} />}
     <ChampionApp
       data={displayData}
       showDailyCrown={model.settings.showDailyCrown}
@@ -300,6 +326,41 @@ export default function FamilyChampion({ familyId, role, email, canSwitchFamily,
     />
   </>);
 }
+
+// „Familie dauerhaft löschen“: owner + Eltern-PIN (serverseitig geprüft) + Passwort (frische Sitzung)
+// + Bestätigungstext. Löscht Familie, alle Familiendaten und Medien – das Konto bleibt bestehen.
+function DeleteFamilyDialog({ familyId, familyName, onCancel, onDeleted }) {
+  const [pw, setPw] = useState(""); const [pin, setPin] = useState(""); const [phrase, setPhrase] = useState("");
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  const ready = pw && /^[0-9]{4}$/.test(pin) && phraseMatches(phrase, DELETE_FAMILY_PHRASE) && !busy;
+  const submit = async (e) => {
+    e.preventDefault(); if (!ready) return;
+    setBusy(true); setErr("");
+    const r = await deleteFamily(getFamilyClient(), { familyId, password: pw, pin, phrase });
+    setPw(""); setPin("");
+    if (r.ok) { onDeleted(); return; }
+    setBusy(false); setErr(r.message);
+  };
+  return (
+    <div style={dialogBg} role="dialog" aria-modal="true" aria-label="Familie dauerhaft löschen">
+      <form style={dialogBox} onSubmit={submit} noValidate data-testid="delete-family-form">
+        <div style={{ fontWeight: 800, fontSize: 19, color: "#fecaca" }}>⚠️ Familie dauerhaft löschen</div>
+        <p style={{ fontSize: 14, lineHeight: 1.5 }}>„{familyName}“: Diese Familie und alle zugehörigen Aufgaben, Punkte, Belohnungen und Bilder werden dauerhaft gelöscht – auch für alle anderen Eltern und Kinder. Dein Konto bleibt bestehen.</p>
+        <label style={S.label} htmlFor="fd-pin">Eltern-PIN</label>
+        <input id="fd-pin" style={S.input} type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))} disabled={busy} />
+        <label style={S.label} htmlFor="fd-pw">Dein Passwort</label>
+        <input id="fd-pw" style={S.input} type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} disabled={busy} />
+        <label style={S.label} htmlFor="fd-phrase">Zur Bestätigung „{DELETE_FAMILY_PHRASE}“ eingeben</label>
+        <input id="fd-phrase" style={S.input} autoComplete="off" autoCapitalize="characters" value={phrase} onChange={(e) => setPhrase(e.target.value)} disabled={busy} />
+        {err && <div role="alert" style={{ color: C.error, fontSize: 14, marginTop: 10 }}>{err}</div>}
+        <button type="submit" style={{ ...S.btn("#b91c1c", "#fff"), marginTop: 14 }} disabled={!ready}>{busy ? "Familie wird gelöscht …" : "Familie endgültig löschen"}</button>
+        <button type="button" style={S.link} onClick={onCancel} disabled={busy}>Abbrechen</button>
+      </form>
+    </div>
+  );
+}
+const dialogBg = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center", padding: 16, overflowY: "auto" };
+const dialogBox = { background: "#1e1b4b", color: "#fff", borderRadius: 20, padding: 20, width: "100%", maxWidth: 440, border: "1px solid rgba(239,68,68,0.5)", fontFamily: "'Fredoka',sans-serif", boxSizing: "border-box" };
 
 const offlineStyle = { pointerEvents: "none", position: "fixed", top: "calc(env(safe-area-inset-top,0px) + 8px)", left: "50%", transform: "translateX(-50%)", zIndex: 250, maxWidth: "calc(100% - 32px)", background: "rgba(30,27,75,0.95)", color: "#fde68a", border: "1px solid rgba(251,191,36,0.4)", borderRadius: 12, padding: "8px 14px", fontSize: 13, fontFamily: "'Fredoka',sans-serif", textAlign: "center", boxShadow: "0 4px 16px rgba(0,0,0,0.3)" };
 

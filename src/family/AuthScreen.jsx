@@ -1,24 +1,27 @@
 import { useState } from "react";
 import { signIn, signUp, requestPasswordReset, MIN_PASSWORD_LENGTH } from "../lib/auth.js";
+import { getAuthRedirectUrl } from "../lib/authRedirects.js";
+import { runtimeEnv } from "../config/backend.js";
 import { S, C, Shell, Header, Message } from "./ui.jsx";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export default function AuthScreen() {
+// notice: Hinweis von außen (z. B. „Dein Account wurde gelöscht.“ oder abgelaufener Reset-Link)
+export default function AuthScreen({ notice = "", onNoticeShown }) {
   const [mode, setMode] = useState("login"); // login | register | forgot
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
+  const [info, setInfo] = useState(notice);
 
-  const switchTo = (m) => { setMode(m); setError(""); setInfo(""); setPassword(""); setPassword2(""); };
+  const switchTo = (m) => { setMode(m); setError(""); setInfo(""); setPassword(""); setPassword2(""); onNoticeShown?.(); };
 
   const submit = async (e) => {
     e.preventDefault();
     if (busy) return;
-    setError(""); setInfo("");
+    setError(""); setInfo(""); onNoticeShown?.();
     if (!EMAIL_RE.test(email.trim())) { setError("Bitte eine gültige E-Mail-Adresse eingeben."); return; }
     if (mode !== "forgot" && !password) { setError("Bitte ein Passwort eingeben."); return; }
     if (mode === "register") {
@@ -36,8 +39,10 @@ export default function AuthScreen() {
         if (!r.ok) setError(r.error);
         else if (r.needsEmailConfirmation) setInfo("Fast geschafft! Bitte bestätige deine E-Mail-Adresse über den Link in der Mail und melde dich danach an.");
       } else {
-        const r = await requestPasswordReset(email, window.location.origin);
-        if (!r.ok) setError(r.error);
+        // Neutrale Meldung – unabhängig davon, ob die Adresse registriert ist (keine Benutzer-Enumeration).
+        // Nur technische Fehler (Verbindung, zu viele Versuche) werden gemeldet.
+        const r = await requestPasswordReset(email, getAuthRedirectUrl("recovery", { env: runtimeEnv }));
+        if (!r.ok && /Verbindung|Zu viele/.test(r.error)) setError(r.error);
         else setInfo("Wenn ein Konto zu dieser E-Mail-Adresse existiert, haben wir dir einen Link zum Zurücksetzen des Passworts geschickt.");
       }
     } finally {

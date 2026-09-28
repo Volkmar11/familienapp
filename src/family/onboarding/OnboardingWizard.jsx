@@ -30,7 +30,7 @@ const VALIDATORS = {
   rewards: (s) => validatePoints(s.rewards, LIMITS.REWARD_POINTS_MAX, "Belohnungen"),
 };
 
-export default function OnboardingWizard({ onCreated, onFinish, onLogout }) {
+export default function OnboardingWizard({ onCreated, onFinish, onLogout, onAccount }) {
   const [state, setState] = useState(initialOnboardingState);
   const [index, setIndex] = useState(0);
   const [error, setError] = useState("");
@@ -75,7 +75,7 @@ export default function OnboardingWizard({ onCreated, onFinish, onLogout }) {
     nextLabel: stepKey === "intro" ? "Familie einrichten" : "Weiter",
   };
   switch (stepKey) {
-    case "welcome": return <WelcomeStep onNext={goNext} onLogout={onLogout} />;
+    case "welcome": return <WelcomeStep onNext={goNext} onLogout={onLogout} onAccount={onAccount} />;
     case "family": return <FamilyStep nav={nav} value={state.familyName} onChange={(v) => patch({ familyName: v })} />;
     case "children": return <ChildrenStep nav={nav} kids={state.children} onChange={(v) => patch({ children: v })} />;
     case "pin": return <PinStep nav={nav} pin={state.pin} pin2={state.pin2} onChange={(k, v) => patch({ [k]: v })} />;

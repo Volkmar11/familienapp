@@ -5,6 +5,8 @@ import { getSession, onAuthStateChange, signOut, updatePassword, MIN_PASSWORD_LE
 import { getFamilyClient } from "../lib/supabaseFamily.js";
 import { fetchMemberships, classifyMemberships } from "../lib/familyMembership.js";
 import AuthScreen from "./AuthScreen.jsx";
+import AccountSecurity from "./AccountSecurity.jsx";
+import { isRecoveryRedirect, readAuthRedirectError, clearAuthParamsFromUrl } from "../lib/authRedirects.js";
 import OnboardingWizard from "./onboarding/OnboardingWizard.jsx";
 import FamilyChampion from "./FamilyChampion.jsx";
 import { S, C, Shell, Header, Spinner, Message } from "./ui.jsx";
@@ -14,7 +16,10 @@ const roleLabel = (r) => (r === "owner" ? "Inhaber:in (owner)" : r === "parent" 
 export default function FamilyApp() {
   const [authReady, setAuthReady] = useState(false);
   const [session, setSession] = useState(null);
-  const [recovery, setRecovery] = useState(false);
+  // Fallback: Recovery-Link erkannt, auch falls das Ereignis vor dem Listener kam
+  const [recovery, setRecovery] = useState(() => isRecoveryRedirect());
+  const [authNotice, setAuthNotice] = useState(() => readAuthRedirectError()); // z. B. abgelaufener Link
+  const [accountOpen, setAccountOpen] = useState(false); // „Konto & Sicherheit“
   const [membership, setMembership] = useState({ status: "idle", list: [], error: "" }); // idle|loading|ready|error
   const [activeFamilyId, setActiveFamilyId] = useState(null);
   const [onboarding, setOnboarding] = useState(null); // { familyId|null } solange der Assistent inkl. Erfolgsseite sichtbar ist
@@ -28,9 +33,12 @@ export default function FamilyApp() {
     const unsubscribe = onAuthStateChange((event, s) => {
       if (!active) return;
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
+      if (event === "SIGNED_OUT") { setRecovery(false); setAccountOpen(false); }
       setSession(s ?? null);
       setAuthReady(true);
     });
+    // Fehlerparameter (abgelaufener Link) nicht im Verlauf stehen lassen
+    if (readAuthRedirectError()) clearAuthParamsFromUrl();
     return () => { active = false; unsubscribe(); };
   }, []);
 
@@ -51,10 +59,22 @@ export default function FamilyApp() {
   }, [userId, loadMemberships]);
 
   if (!authReady) return <Shell><Spinner label="Anmeldung wird geprüft …" /></Shell>;
-  if (recovery && session) return <NewPasswordScreen onDone={() => setRecovery(false)} />;
-  if (!session) return <AuthScreen />;
+  if (recovery && session) return <NewPasswordScreen onDone={() => { setRecovery(false); clearAuthParamsFromUrl(); }} />;
+  if (!session) return <AuthScreen notice={authNotice} onNoticeShown={() => setAuthNotice("")} />;
 
   const email = session.user?.email ?? "";
+  // Konto & Sicherheit: überall erreichbar (Onboarding, Familienauswahl, Elternbereich)
+  if (accountOpen) {
+    return (
+      <AccountSecurity
+        email={email}
+        memberships={membership.list}
+        onClose={() => setAccountOpen(false)}
+        onLogout={() => signOut()}
+        onDeleted={() => { setAuthNotice("Dein Account wurde gelöscht."); setAccountOpen(false); }}
+      />
+    );
+  }
   const wizard = (
     <OnboardingWizard
       onCreated={(familyId) => { setOnboarding({ familyId }); loadMemberships({ silent: true, preferFamilyId: familyId }); }}
@@ -65,6 +85,7 @@ export default function FamilyApp() {
         else loadMemberships({ preferFamilyId: familyId });
       }}
       onLogout={() => signOut()}
+      onAccount={() => setAccountOpen(true)}
     />
   );
   // Assistent bleibt inkl. Erfolgsseite sichtbar, auch während Mitgliedschaften neu geladen werden.
@@ -72,7 +93,7 @@ export default function FamilyApp() {
   if (membership.status === "idle" || membership.status === "loading") return <Shell><Spinner label="Familie wird geladen …" /></Shell>;
   if (membership.status === "error") {
     return (
-      <Screen email={email} title="Verbindungsproblem">
+      <Screen email={email} title="Verbindungsproblem" onAccount={() => setAccountOpen(true)}>
         <Message kind="error">{membership.error}</Message>
         <button style={S.btn()} onClick={() => loadMemberships()}>Erneut versuchen</button>
       </Screen>
@@ -85,7 +106,7 @@ export default function FamilyApp() {
   const activeFamily = membership.list.find((m) => m.familyId === activeFamilyId);
   if (!activeFamily) {
     return (
-      <Screen email={email} title="Familie auswählen" emoji="🏠">
+      <Screen email={email} title="Familie auswählen" emoji="🏠" onAccount={() => setAccountOpen(true)}>
         <p style={{ color: C.muted, fontSize: 15, margin: "8px 0 4px" }}>Du gehörst zu mehreren Familien. Welche möchtest du öffnen?</p>
         {membership.list.map((m) => (
           <button key={m.familyId} style={{ ...S.btn("rgba(255,255,255,0.1)", C.text), textAlign: "left", marginTop: 10 }} onClick={() => setActiveFamilyId(m.familyId)}>
@@ -103,14 +124,19 @@ export default function FamilyApp() {
       familyId={activeFamily.familyId}
       role={activeFamily.role}
       email={email}
+      userId={userId}
       canSwitchFamily={membership.list.length > 1}
       onSwitchFamily={() => setActiveFamilyId(null)}
       onLogout={() => signOut()}
+      onOpenAccount={() => setAccountOpen(true)}
+      // Rolle/Mitgliedschaft geändert (z. B. Ownership-Übergabe, Austritt, Familie gelöscht) → neu laden
+      onMembershipChanged={() => loadMemberships({ silent: true, preferFamilyId: activeFamily.familyId })}
+      onFamilyDeleted={() => { setActiveFamilyId(null); loadMemberships(); }}
     />
   );
 }
 
-function Screen({ email, title, emoji, children }) {
+function Screen({ email, title, emoji, children, onAccount }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const logout = async () => {
@@ -128,6 +154,7 @@ function Screen({ email, title, emoji, children }) {
         </div>
       ) : children}
       <Message kind="error">{error}</Message>
+      {onAccount && <button style={{ ...S.btn("rgba(255,255,255,0.12)", C.text), marginBottom: 10 }} onClick={onAccount}>👤 Konto & Sicherheit</button>}
       <button style={S.btn("rgba(255,255,255,0.12)", C.text)} onClick={logout} disabled={busy}>{busy ? "Abmelden …" : "Abmelden"}</button>
     </Shell>
   );

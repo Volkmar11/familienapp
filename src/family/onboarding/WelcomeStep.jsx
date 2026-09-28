@@ -8,7 +8,7 @@ const POINTS = [
   ["🏆", "Optional: spielerischer Wochen-Champion"],
 ];
 
-export default function WelcomeStep({ onNext, onLogout }) {
+export default function WelcomeStep({ onNext, onLogout, onAccount }) {
   return (
     <StepLayout title="Willkommen bei Wochen Champion 👋" intro="In wenigen Schritten richtet ihr eure Familie ein." onNext={onNext} nextLabel="Los geht’s">
       <div style={S.card}>
@@ -20,6 +20,7 @@ export default function WelcomeStep({ onNext, onLogout }) {
       </div>
       <p style={{ color: C.muted, fontSize: 13, marginTop: 14 }}>Ihr könnt alles später im Elternbereich anpassen.</p>
       {onLogout && <button type="button" style={{ ...S.link, paddingLeft: 0 }} onClick={onLogout}>Mit einem anderen Konto anmelden</button>}
+      {onAccount && <button type="button" style={{ ...S.link, paddingLeft: 0, display: "block" }} onClick={onAccount}>Konto & Sicherheit (Passwort, Account löschen)</button>}
     </StepLayout>
   );
 }
