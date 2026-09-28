@@ -98,7 +98,7 @@
 - **Nutzeraktion notwendig:** Anbieter wählen, Domain bereitstellen, DNS-Einträge setzen, Zugangsdaten im Supabase-Dashboard eintragen
 
 ## 8. Vercel
-- **Preview:** Für `a34e0a8` meldet GitHub „Vercel: success“. Das Preview für `f4e69fc` war beim Abschluss noch „pending“.
+- **Preview:** Für `a34e0a8` meldet GitHub „Vercel: success“. Das Preview für `f4e69fc` meldet ebenfalls „Vercel: success“.
 - **Preview URL:** `https://familienapp-git-feature-appstore-v1-volkmar11s-projects.vercel.app` (geschützt durch Vercel-Login; aus der Sandbox nicht testbar)
 - **Preview nutzt Testprojekt:** **nicht verifizierbar** (kein Vercel-Zugriff); Prüfliste unten
 - **Production weiterhin Legacy:** ja (200 OK, unverändert)
