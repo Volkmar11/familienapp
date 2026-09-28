@@ -24,12 +24,13 @@ export function mapProfiles(profiles, active = true) {
     isAdmin: false,
     isParentPlayer: p.is_parent === true,
     active: p.active !== false,
+    updatedAt: p.updated_at ?? null, // Konflikterkennung (optimistische Sperre)
   }));
 }
 
 export function mapCategories(categories) {
   return asArray(categories).sort(bySort).map((c) => ({
-    id: c.id, name: c.name, emoji: c.icon || "📦", assignedTo: assignedIds(c.category_assignments),
+    id: c.id, name: c.name, emoji: c.icon || "📦", assignedTo: assignedIds(c.category_assignments), updatedAt: c.updated_at ?? null,
   }));
 }
 
@@ -46,13 +47,14 @@ export function mapTasks(tasks, categoryById, active = true) {
     assignedTo: assignedIds(t.task_assignments),
     sortOrder: t.sort_order ?? 0,
     active: t.active !== false,
+    updatedAt: t.updated_at ?? null,
   }));
 }
 
 export function mapRewards(rewards, active = true) {
   return asArray(rewards).filter((r) => (r.active !== false) === active).sort(bySort).map((r) => ({
     id: r.id, name: r.title, emoji: r.icon || "🎁", pointsCost: r.points_required, assignedTo: assignedIds(r.reward_assignments),
-    sortOrder: r.sort_order ?? 0, active: r.active !== false,
+    sortOrder: r.sort_order ?? 0, active: r.active !== false, updatedAt: r.updated_at ?? null,
   }));
 }
 
@@ -119,6 +121,7 @@ export function mapFamilyToChampionData(raw) {
     showDailyCrown: settingsRow?.show_daily_crown !== false,
     requireConfirmation: settingsRow?.require_confirmation !== false,
     timezone: settingsRow?.timezone || "Europe/Berlin",
+    updatedAt: settingsRow?.updated_at ?? null,
   };
   return {
     family: { id: raw.id, name: raw.name },

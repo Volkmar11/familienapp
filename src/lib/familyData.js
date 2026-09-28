@@ -5,11 +5,11 @@ import { mapFamilyToChampionData } from "./familyMapping.js";
 
 export const FAMILY_SELECT = `
   id, name,
-  family_settings ( show_daily_crown, require_confirmation, last_champion_week, timezone ),
-  profiles ( id, name, avatar_emoji, avatar_url, color, sort_order, active, is_parent ),
-  categories ( id, name, icon, sort_order, category_assignments ( profile_id ) ),
-  tasks ( id, category_id, title, icon, image_url, points, recurrence, active, sort_order, task_assignments ( profile_id ) ),
-  rewards ( id, title, icon, points_required, active, sort_order, reward_assignments ( profile_id ) ),
+  family_settings ( show_daily_crown, require_confirmation, last_champion_week, timezone, updated_at ),
+  profiles ( id, name, avatar_emoji, avatar_url, color, sort_order, active, is_parent, updated_at ),
+  categories ( id, name, icon, sort_order, updated_at, category_assignments ( profile_id ) ),
+  tasks ( id, category_id, title, icon, image_url, points, recurrence, active, sort_order, updated_at, task_assignments ( profile_id ) ),
+  rewards ( id, title, icon, points_required, active, sort_order, updated_at, reward_assignments ( profile_id ) ),
   completions ( id, profile_id, task_id, task_title, category_name, points, completed_at, completion_date, status ),
   redemptions ( id, profile_id, reward_id, reward_title, points_spent, redeemed_at, acknowledged_at ),
   champion_history ( id, profile_id, profile_name, profile_avatar, week_start, points )

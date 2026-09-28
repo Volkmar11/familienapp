@@ -138,12 +138,14 @@ const READ_ONLY_HINT = "Diese Funktion wird gerade vorbereitet.";
 //   adminUnlocked      FAMILY: Elternbereich entsperrt (Auth-Rolle + PIN, Zustand im Wrapper)
 //   onLockAdmin        FAMILY: Elternbereich sofort wieder sperren
 //   adminInfo          FAMILY: zusätzlicher Inhalt im Elternbereich (Familie, Rolle, Abmelden …)
+//   ceremony           FAMILY (4C2B2): { id, weekStart, ranking[{profileId, points}] } – vom Server neu
+//                      ermittelter Wochen-Champion → bestehende Zeremonie einmal anzeigen
 //   rewardSuggestions  Vorschläge im Elternbereich (vom Wrapper, keine persönlichen Daten im Shared-Code)
 //   resetData          Daten für „Komplett-Reset“ (nur LEGACY)
 //   checkAdminPin(pin) Legacy-PIN-Prüfung (nur LEGACY; FAMILY nutzt verify_parent_pin ab 4C2)
 //   changeAdminPin(v)  liefert fn: prev → next zum Ändern der Legacy-PIN (nur LEGACY)
 //   notice             { id, text } – einmaliger Hinweis vom Wrapper (z. B. Speicherfehler)
-export default function ChampionApp({ data, update: persistUpdate, readOnly = false, showDailyCrown = true, actions = null, settings = null, adminUnlocked = false, onLockAdmin = null, adminInfo = null, rewardSuggestions = [], resetData = null, notice = null, checkAdminPin = null, changeAdminPin = null }){
+export default function ChampionApp({ data, update: persistUpdate, readOnly = false, showDailyCrown = true, actions = null, settings = null, adminUnlocked = false, onLockAdmin = null, adminInfo = null, ceremony = null, rewardSuggestions = [], resetData = null, notice = null, checkAdminPin = null, changeAdminPin = null }){
   const [screen,setScreen]=useState("home");
   const [active,setActive]=useState(null);
   const [adminMode,setAdminMode]=useState(false);
@@ -209,6 +211,36 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     persistUpdate(fn);
   },[readOnly,persistUpdate]);
   useEffect(()=>{ if(notice?.text) flash(notice.text,3500); },[notice?.id]);
+  // FAMILY (4C2B2): Mehrgeräte-Konflikte in offenen Formularen erkennen. Der Formularinhalt wird
+  // NICHT überschrieben; stattdessen Hinweis + „Aktuellen Stand übernehmen“. Beim Speichern prüft
+  // der Server zusätzlich updated_at (kein Last-Writer-Wins).
+  const famCurrent=(kind,item)=>{
+    if(!fam||!item?.id||!data) return undefined;
+    const ar=data.archived||{};
+    const lists={task:[...data.tasks,...(ar.tasks||[])],reward:[...data.rewards,...(ar.rewards||[])],member:[...data.members,...(ar.members||[])],category:data.customCategories||[]};
+    return lists[kind].find(x=>x.id===item.id)||null;
+  };
+  const staleBox=(kind,item,setter)=>{
+    const cur=famCurrent(kind,item);
+    if(cur===undefined) return null;
+    const box={background:"#fef3c7",color:"#92400e",border:"1px solid #fcd34d",borderRadius:12,padding:"10px 12px",fontSize:14,marginBottom:12};
+    if(cur===null) return <div role="alert" data-testid="stale-hint" style={box}>Dieser Eintrag wurde inzwischen auf einem anderen Gerät gelöscht oder archiviert.</div>;
+    if(!item.updatedAt||cur.updatedAt===item.updatedAt) return null;
+    return <div role="alert" data-testid="stale-hint" style={box}>Dieser Eintrag wurde inzwischen auf einem anderen Gerät geändert.
+      <button onClick={()=>setter({...cur,assignedTo:cur.assignedTo||[],photo:cur.photo||null})} style={{display:"block",marginTop:8,background:"#92400e",color:"#fff",border:"none",borderRadius:10,padding:"8px 12px",fontSize:14,fontWeight:700,fontFamily:"inherit",cursor:"pointer"}}>Aktuellen Stand übernehmen</button>
+    </div>;
+  };
+  // FAMILY: Zeremonie für einen serverseitig NEU ermittelten Wochen-Champion (einmal je id).
+  useEffect(()=>{
+    if(!fam||!ceremony||!data) return;
+    const all=[...data.members,...((data.archived&&data.archived.members)||[])];
+    const hist=(data.championHistory||[]).find(h=>h.week===ceremony.weekStart);
+    const ranked=(ceremony.ranking||[]).map(r=>{const m=all.find(mm=>mm.id===r.profileId);return {...(m||{id:r.profileId,name:hist&&hist.memberId===r.profileId?hist.name:"",emoji:hist?.emoji||"🏆"}),pts:r.points};});
+    const scores=[...ranked,...data.members.filter(m=>!ranked.some(x=>x.id===m.id)).map(m=>({...m,pts:0}))];
+    if(!scores.length||!(scores[0].pts>0)) return;
+    setCeremonyData({champion:scores[0],scores,weekOf:ceremony.weekStart});
+    setShowCeremony(true);
+  },[ceremony?.id]);
   // FAMILY: Beim Sperren des Elternbereichs offene Verwaltungsdialoge schließen.
   useEffect(()=>{ if(fam&&!adminUnlocked){setEditTask(null);setEditMember(null);setEditReward(null);setEditCategory(null);setShowPointsManager(false);setPointsManagerMember(null);} },[fam,adminUnlocked]);
   const boom=()=>{setConfetti(true);setTimeout(()=>setConfetti(false),2200);};
@@ -883,6 +915,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditTask(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
         <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neue Aufgabe":"Aufgabe bearbeiten"}</div>
+        {staleBox("task",editTask,setEditTask)}
         <label style={S.label}>Name</label>
         <input value={editTask.name} onChange={e=>setEditTask({...editTask,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
         <label style={S.label}>Bild / Icon</label>
@@ -925,6 +958,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditMember(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
         <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?(fam?"Neues Kind":"Neues Mitglied"):"Bearbeiten"}</div>
+        {staleBox("member",editMember,setEditMember)}
         <label style={S.label}>Name</label>
         <input value={editMember.name} onChange={e=>setEditMember({...editMember,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
         {!fam&&<><label style={{...S.label,marginBottom:8}}>Profilbild</label>
@@ -961,6 +995,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditReward(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
         <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neue Belohnung":"Bearbeiten"}</div>
+        {staleBox("reward",editReward,setEditReward)}
         <label style={S.label}>Name</label>
         <input value={editReward.name} onChange={e=>setEditReward({...editReward,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
         <label style={S.label}>Emoji</label>
@@ -992,6 +1027,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditCategory(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
         <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neue Kategorie":"Kategorie bearbeiten"}</div>
+        {staleBox("category",editCategory,setEditCategory)}
         <label style={S.label}>Name</label>
         <input value={editCategory.name} onChange={e=>setEditCategory({...editCategory,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
         <label style={S.label}>Emoji</label>

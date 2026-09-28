@@ -112,7 +112,7 @@ test("Einlösungen, Eltern-Hinweise (unquittiert) und Champion-Historie", () => 
 
 test("Einstellungen: show_daily_crown und require_confirmation werden übernommen", () => {
   const on = mapFamilyToChampionData(rawFamily());
-  assert.deepEqual(on.settings, { showDailyCrown: true, requireConfirmation: true, timezone: "Europe/Berlin" });
+  assert.deepEqual(on.settings, { showDailyCrown: true, requireConfirmation: true, timezone: "Europe/Berlin", updatedAt: null });
   assert.equal(on.data.needsConfirmation, true);
   const off = mapFamilyToChampionData(rawFamily({ family_settings: { show_daily_crown: false, require_confirmation: false, last_champion_week: null, timezone: "Europe/Berlin" } }));
   assert.equal(off.settings.showDailyCrown, false);

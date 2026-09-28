@@ -30,6 +30,7 @@ export const MESSAGES = {
   notConfirmed: "Nur bestätigte Erledigungen können zurückgenommen werden.",
   notRejected: "Dieser Eintrag ist nicht zurückgenommen.",
   reconfirmDuplicate: "Für diesen Tag gibt es diese Aufgabe schon als Erledigung.",
+  conflict: "Dieser Eintrag wurde auf einem anderen Gerät geändert. Bitte lade die aktuellen Daten neu.",
 };
 
 export const missingPointsMessage = (missing) => `Dafür fehlen noch ${missing} ${missing === 1 ? "Punkt" : "Punkte"}.`;
@@ -156,16 +157,23 @@ export function redeemReward(client, { familyId, profileId, rewardId }) {
 // Familien-Einstellungen (RLS: nur owner/parent). Gilt nur für künftige Aktionen;
 // bestehende pending-Einträge bleiben unverändert.
 // ---------------------------------------------------------------------------
-export function updateFamilySettings(client, { familyId, showDailyCrown, requireConfirmation }) {
+export function updateFamilySettings(client, { familyId, showDailyCrown, requireConfirmation, expectedUpdatedAt = null }) {
   return run("updateFamilySettings", async () => {
     const patch = {};
     if (typeof showDailyCrown === "boolean") patch.show_daily_crown = showDailyCrown;
     if (typeof requireConfirmation === "boolean") patch.require_confirmation = requireConfirmation;
     if (!Object.keys(patch).length) return { ok: false, reason: "invalid", message: MESSAGES.generic };
-    const upd = await client.from("family_settings").update(patch).eq("family_id", familyId)
-      .select("show_daily_crown, require_confirmation");
+    let q = client.from("family_settings").update(patch).eq("family_id", familyId);
+    if (expectedUpdatedAt) q = q.eq("updated_at", expectedUpdatedAt);   // Konflikterkennung
+    const upd = await q.select("show_daily_crown, require_confirmation");
     if (upd.error) return toMutationError(upd.error, "updateFamilySettings");
-    if (upd.data.length !== 1) return { ok: false, reason: "forbidden", message: MESSAGES.forbidden };
+    if (upd.data.length !== 1) {
+      if (expectedUpdatedAt) {
+        const ex = await client.from("family_settings").select("family_id").eq("family_id", familyId);
+        if (!ex.error && ex.data.length === 1) return { ok: false, reason: "conflict", message: MESSAGES.conflict };
+      }
+      return { ok: false, reason: "forbidden", message: MESSAGES.forbidden };
+    }
     return { ok: true, settings: upd.data[0] };
   });
 }
@@ -273,10 +281,26 @@ export const setCategoryAssignments = (client, { familyId, categoryId, profileId
 export const setRewardAssignments = (client, { familyId, rewardId, profileIds }) =>
   run("setRewardAssignments", () => setAssignments(client, "set_reward_assignments", familyId, "p_reward_id", rewardId, profileIds));
 
+// Optimistische Konkurrenzkontrolle: UPDATE nur, wenn updated_at noch dem Stand beim Öffnen
+// entspricht. 0 Zeilen + Eintrag existiert → auf einem anderen Gerät geändert (kein
+// Last-Writer-Wins). Ohne expectedUpdatedAt (Altaufrufe) wird wie bisher aktualisiert.
+async function guardedUpdate(client, { table, familyId, id, row, expectedUpdatedAt, action, dupMessage }) {
+  let q = client.from(table).update(row).eq("family_id", familyId).eq("id", id);
+  if (expectedUpdatedAt) q = q.eq("updated_at", expectedUpdatedAt);
+  const upd = await q.select("id");
+  if (upd.error) return toMutationError(upd.error, action, dupMessage);
+  if (upd.data.length === 1) return { ok: true };
+  if (expectedUpdatedAt) {
+    const ex = await client.from(table).select("id").eq("family_id", familyId).eq("id", id);
+    if (!ex.error && ex.data.length === 1) return { ok: false, reason: "conflict", message: MESSAGES.conflict };
+  }
+  return { ok: false, reason: "not_found", message: MESSAGES.notFound };
+}
+
 // Gemeinsamer Ablauf für Aufgaben/Belohnungen: Neu mit Zuordnung wird zunächst INAKTIV angelegt,
 // dann atomar zugeordnet und erst danach aktiviert. Scheitert ein Schritt, ist der Eintrag nie
 // versehentlich „für alle sichtbar“.
-async function saveWithAssignments(client, { table, familyId, id, row, active, assignedTo, assign, action }) {
+async function saveWithAssignments(client, { table, familyId, id, row, active, assignedTo, assign, action, expectedUpdatedAt = null }) {
   const wantsSubset = (assignedTo ?? []).length > 0;
   let itemId = id;
   if (!itemId) {
@@ -286,9 +310,8 @@ async function saveWithAssignments(client, { table, familyId, id, row, active, a
     if (ins.error) return toMutationError(ins.error, action);
     itemId = ins.data.id;
   } else {
-    const upd = await client.from(table).update({ ...row, active }).eq("family_id", familyId).eq("id", itemId).select("id");
-    if (upd.error) return toMutationError(upd.error, action);
-    if (upd.data.length !== 1) return { ok: false, reason: "not_found", message: MESSAGES.notFound };
+    const upd = await guardedUpdate(client, { table, familyId, id: itemId, row: { ...row, active }, expectedUpdatedAt, action });
+    if (!upd.ok) return upd;
   }
   const a = await assign(itemId, assignedTo ?? []);
   if (!a.ok) return { ...a, id: itemId };
@@ -308,7 +331,7 @@ export function saveTask(client, { familyId, task }) {
     const err = validateTask(t);
     if (err) return invalid(err);
     return saveWithAssignments(client, {
-      table: "tasks", familyId, id: t.id || null, action: "saveTask", active: t.active !== false, assignedTo: t.assignedTo,
+      table: "tasks", familyId, id: t.id || null, action: "saveTask", active: t.active !== false, assignedTo: t.assignedTo, expectedUpdatedAt: t.expectedUpdatedAt || null,
       row: { title: t.title, points: t.points, recurrence: t.recurrence, icon: t.icon || null, category_id: t.categoryId || null },
       assign: (taskId, profileIds) => setAssignments(client, "set_task_assignments", familyId, "p_task_id", taskId, profileIds),
     });
@@ -350,9 +373,8 @@ export function saveCategory(client, { familyId, category }) {
       if (ins.error) return toMutationError(ins.error, "saveCategory", MESSAGES.categoryDuplicate);
       id = ins.data.id;
     } else {
-      const upd = await client.from("categories").update(row).eq("family_id", familyId).eq("id", id).select("id");
-      if (upd.error) return toMutationError(upd.error, "saveCategory", MESSAGES.categoryDuplicate);
-      if (upd.data.length !== 1) return { ok: false, reason: "not_found", message: MESSAGES.notFound };
+      const upd = await guardedUpdate(client, { table: "categories", familyId, id, row, expectedUpdatedAt: c.expectedUpdatedAt || null, action: "saveCategory", dupMessage: MESSAGES.categoryDuplicate });
+      if (!upd.ok) return upd;
     }
     const a = await setAssignments(client, "set_category_assignments", familyId, "p_category_id", id, c.assignedTo);
     if (!a.ok && !c.id) await client.rpc("delete_category", { p_family_id: familyId, p_category_id: id }); // neue Kategorie ohne gültige Zuordnung nicht stehen lassen
@@ -370,7 +392,7 @@ export function saveReward(client, { familyId, reward }) {
     const err = validateReward(r);
     if (err) return invalid(err);
     return saveWithAssignments(client, {
-      table: "rewards", familyId, id: r.id || null, action: "saveReward", active: r.active !== false, assignedTo: r.assignedTo,
+      table: "rewards", familyId, id: r.id || null, action: "saveReward", active: r.active !== false, assignedTo: r.assignedTo, expectedUpdatedAt: r.expectedUpdatedAt || null,
       row: { title: r.title, points_required: r.pointsRequired, icon: r.icon || null },
       assign: (rewardId, profileIds) => setAssignments(client, "set_reward_assignments", familyId, "p_reward_id", rewardId, profileIds),
     });
@@ -395,10 +417,8 @@ export function saveProfile(client, { familyId, profile }) {
       if (ins.error) return toMutationError(ins.error, "saveProfile");
       return { ok: true, id: ins.data.id, created: true };
     }
-    const upd = await client.from("profiles").update({ ...row, ...(p.active === false ? { active: false } : {}) })
-      .eq("family_id", familyId).eq("id", p.id).select("id");
-    if (upd.error) return toMutationError(upd.error, "saveProfile");
-    if (upd.data.length !== 1) return { ok: false, reason: "not_found", message: MESSAGES.notFound };
+    const upd = await guardedUpdate(client, { table: "profiles", familyId, id: p.id, row: { ...row, ...(p.active === false ? { active: false } : {}) }, expectedUpdatedAt: p.expectedUpdatedAt || null, action: "saveProfile" });
+    if (!upd.ok) return upd;
     return { ok: true, id: p.id, created: false };
   });
 }
@@ -457,5 +477,27 @@ export function acknowledgeRedemptions(client, { familyId, redemptionIds }) {
       .eq("family_id", familyId).in("id", redemptionIds).is("acknowledged_at", null).select("id");
     if (upd.error) return toMutationError(upd.error, "acknowledgeRedemptions");
     return { ok: true, count: upd.data.length };
+  });
+}
+
+// =====================================================================
+// Phase 4C2B2 – Wochen-Champion (serverseitig, idempotent)
+// Ergebnis: { ok, processedWeeks, created[], newChampion, latest: { weekStart, ranking[{profileId, points}] } | null }
+// newChampion ist nur true, wenn DIESER Aufruf den Champion der zuletzt abgeschlossenen
+// Woche neu angelegt hat (→ Zeremonie). Ein zweites Gerät sieht newChampion=false.
+// =====================================================================
+export function syncWeeklyChampion(client, { familyId }) {
+  return run("syncWeeklyChampion", async () => {
+    const r = await client.rpc("sync_weekly_champion", { p_family_id: familyId });
+    if (r.error) return toMutationError(r.error, "syncWeeklyChampion");
+    const d = r.data || {};
+    return {
+      ok: true,
+      processedWeeks: d.processed_weeks ?? 0,
+      created: (d.created || []).map((c) => ({ weekStart: c.week_start, profileId: c.profile_id, points: c.points })),
+      newChampion: d.new_champion === true,
+      lastChampionWeek: d.last_champion_week ?? null,
+      latest: d.latest ? { weekStart: d.latest.week_start, ranking: (d.latest.ranking || []).map((x) => ({ profileId: x.profile_id, points: x.points })) } : null,
+    };
   });
 }
