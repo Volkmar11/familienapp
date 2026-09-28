@@ -25,6 +25,13 @@
 
 ## Phase 7A – Capacitor und Xcode-Projekt
 
+> **Stand 28.09.2026: umgesetzt** (Code, Capacitor 8, `ios/` mit SPM, Schutzmechanismen, Tests). Xcode-Build, Simulator und iPhone-Test folgen auf dem Mac des Nutzers. Details: `PHASE_07A_CAPACITOR_XCODE.md`.
+>
+> Abweichungen zum ursprünglichen Plan:
+> - Info.plist: nur die Kamera-Beschreibung (die Mediathek braucht über den System-Picker keine)
+> - externe Links ohne `@capacitor/browser` (Capacitor öffnet fremde URLs automatisch in Safari)
+> - Tippziele 44 pt bereits in 7A erledigt
+
 - Capacitor installieren, Plattform `ios`, `appId` = gewählte Bundle-ID, `webDir` = `dist`.
 - Build-Profil für native Builds:
   - `VITE_BACKEND_MODE=family`

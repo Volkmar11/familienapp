@@ -49,3 +49,12 @@ test("Header: Allow-Origin nur für erlaubte Origins, Vary immer", () => {
   assert.equal(corsHeaders("https://evil.com", c).Vary, "Origin");
   assert.equal(corsHeaders(APP, c)["Access-Control-Allow-Origin"] === "*", false);
 });
+
+test("Phase 7A: native Test-App (capacitor://localhost) im Testprojekt erlaubt, in Produktion nur explizit", () => {
+  assert.equal(isAllowedOrigin("capacitor://localhost", corsConfig({ SUPABASE_URL: TEST_URL })), true);
+  assert.equal(isAllowedOrigin("capacitor://localhost", corsConfig({ SUPABASE_URL: PROD_URL, WC_APP_ORIGIN: APP })), false, "Produktion ohne WC_ALLOWED_ORIGINS");
+  assert.equal(isAllowedOrigin("capacitor://localhost", corsConfig({ SUPABASE_URL: TEST_URL, WC_ALLOW_DEV_ORIGINS: "false" })), false);
+  for (const o of ["capacitor://localhost:8080", "capacitor://evil", "capacitor://localhost.evil.com", "ionic://localhost"]) {
+    assert.equal(isAllowedOrigin(o, corsConfig({ SUPABASE_URL: TEST_URL })), false, o);
+  }
+});

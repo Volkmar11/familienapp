@@ -39,7 +39,7 @@ Preview-Umgebung: Sie bleibt unverändert (Testprojekt `wochen-champion-test`). 
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase (automatisch) | ja | **ja, streng geheim** | wird von der Plattform gesetzt; verlässt die Function nie | nie manuell |
 | `SUPABASE_SECRET_KEYS` | Supabase (automatisch, neue Keys) | alternativ zu oben | **ja, streng geheim** | JSON, von der Plattform gesetzt | nie manuell |
 | `WC_APP_ORIGIN` | Supabase Edge Secret | ja | nein | `https://<produktions-domain>` (exakt, ohne Slash am Ende) | STOP 7 (vor dem Deploy der Functions) |
-| `WC_ALLOWED_ORIGINS` | Supabase Edge Secret | nein (später iOS) | nein | kommagetrennt, z. B. `capacitor://localhost` | iOS-Phase |
+| `WC_ALLOWED_ORIGINS` | Supabase Edge Secret | ja, sobald die native App gegen Produktion läuft | nein | `capacitor://localhost` (Origin der iOS-WKWebView; exakt, kommagetrennt erweiterbar) | nach dem Cutover, vor dem ersten Produktions-Build der iOS-App (im Testprojekt seit 7A automatisch erlaubt) |
 | `WC_ALLOW_DEV_ORIGINS` | Supabase Edge Secret | nein | nein | `false` (Standard in Produktion, auch wenn nicht gesetzt) | nicht setzen; nur Testprojekt nutzt Dev-Origins |
 
 CORS-Regel (`supabase/functions/_shared/cors.js`):
@@ -77,6 +77,14 @@ Diese Werte werden im Supabase-Dashboard eingetragen (Authentication → Emails 
 | `WC_GO_SMTP_CONFIRMED` | lokale Shell (Release-Check `production`) | STOP 7 | nein | `yes`, erst nach erfolgreicher Testmail | STOP 7 |
 | `WC_GO_LEGAL_CONFIRMED` | lokale Shell (Release-Check `production`) | STOP 7 | nein | `yes`, erst wenn Datenschutz/Impressum/Support öffentlich sind | STOP 7 |
 | `SUPABASE_TEST_URL` / `SUPABASE_TEST_PUBLISHABLE_KEY` / `SUPABASE_TEST_PROJECT_NAME` | lokale Shell (Integrationstests) | nur Tests | öffentlich | Testprojekt | jederzeit (nur Testprojekt) |
+
+## 4a. Native iOS-Test-App (Phase 7A, nur lokal)
+
+- Datei `.env.ios-test.local` (von Git ignoriert), Vorlage `.env.ios-test.example`, Build: `npm run build:ios:test`.
+- Nur Testprojekt, nur Publishable Key.
+- LEGACY-Variablen müssen dort **leer** überschrieben werden, weil Vite alle `VITE_`-Werte einbettet.
+- Die Produktions-Ref bricht den Build ab (`scripts/lib/iosTestGuard.mjs`).
+- Ein Produktions-Build der iOS-App ist erst nach dem Cutover vorgesehen und braucht dann ein eigenes, geprüftes Build-Profil.
 
 ## 5. Was nie gesetzt wird
 

@@ -1,5 +1,7 @@
 # CHATGPT – AKTUELLER ARBEITSSTAND „Wochen Champion“ → iOS / App Store
 
+> **Veraltet (Stand Phase 4B).** Aktueller Einstieg: `docs/appstore/PROJECT_MASTER_HANDOFF.md`, neuester Handoff: `docs/appstore/CHATGPT_HANDOFF_PHASE_07A.md`.
+
 Stand: 27.09.2026 (nach Phase 4B) · Repository `volkmar11/familienapp` · Arbeitsbranch **`feature/appstore-v1`** (auf GitHub, nicht nach `main` gemergt) · letzter Commit `7499899`
 
 ## 1. Ziel und Rahmen

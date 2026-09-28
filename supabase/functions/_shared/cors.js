@@ -4,7 +4,8 @@
 // Konfiguration (Supabase → Edge Functions → Secrets):
 //   WC_APP_ORIGIN         Produktions-Web-Origin, z. B. https://<produktions-domain> (genau ein Origin)
 //   WC_ALLOWED_ORIGINS    weitere exakte Origins, kommagetrennt (später z. B. capacitor://localhost)
-//   WC_ALLOW_DEV_ORIGINS  "true" erlaubt localhost/127.0.0.1 und die Vercel-Previews dieses Projekts.
+//   WC_ALLOW_DEV_ORIGINS  "true" erlaubt localhost/127.0.0.1, die Vercel-Previews dieses Projekts und die
+//                         native Test-App (capacitor://localhost).
 //                         Nicht gesetzt: nur im Testprojekt automatisch an, sonst (Produktion) AUS.
 // Ein Origin wird nur exakt verglichen (Schema + Host + Port), nie per Präfix oder Teilstring.
 
@@ -14,6 +15,9 @@ export const DEV_ORIGIN_PATTERNS = [
   /^http:\/\/localhost(:\d{1,5})?$/,
   /^http:\/\/127\.0\.0\.1(:\d{1,5})?$/,
   /^https:\/\/familienapp-[a-z0-9-]+-volkmar11s-projects\.vercel\.app$/,
+  // Phase 7A: native iOS-Test-App (Capacitor-WKWebView). In Produktion NICHT automatisch –
+  // dort explizit per WC_ALLOWED_ORIGINS=capacitor://localhost (PRODUCTION_ENVIRONMENT.md).
+  /^capacitor:\/\/localhost$/,
 ];
 
 const list = (v) => String(v || "").split(",").map((s) => s.trim().replace(/\/+$/, "")).filter(Boolean);

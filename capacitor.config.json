@@ -1,0 +1,10 @@
+{
+  "appId": "de.volkmarsolutions.wochenchampion",
+  "appName": "Wochen Champion",
+  "webDir": "dist",
+  "backgroundColor": "#1e1b4b",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#1e1b4b"
+  }
+}

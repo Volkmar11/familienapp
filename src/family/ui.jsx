@@ -14,7 +14,8 @@ export const S = {
   page: {
     fontFamily: "'Fredoka',sans-serif", background: C.bg, minHeight: "100vh", color: C.text,
     maxWidth: 480, margin: "0 auto", boxSizing: "border-box",
-    padding: "calc(env(safe-area-inset-top,0px) + 24px) 16px calc(env(safe-area-inset-bottom,0px) + 24px)",
+    // Safe Area aller vier Seiten (iOS: Dynamic Island/Statusleiste, Home-Indicator, Querformat-Ränder)
+    padding: "calc(env(safe-area-inset-top,0px) + 24px) calc(env(safe-area-inset-right,0px) + 16px) calc(env(safe-area-inset-bottom,0px) + 24px) calc(env(safe-area-inset-left,0px) + 16px)",
     display: "flex", flexDirection: "column",
   },
   card: {

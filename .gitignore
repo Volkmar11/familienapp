@@ -9,6 +9,7 @@ coverage/
 .env
 .env.*
 !.env.example
+!.env.ios-test.example
 *.local
 
 # Lokale Datensicherungen (z. B. Supabase-Export von family-main)
@@ -23,8 +24,12 @@ vite.config.*.timestamp-*
 # Betriebssystem
 .DS_Store
 
-# Hinweis: Ein künftiger ios/-Ordner (Capacitor) wird bewusst NICHT pauschal
-# ignoriert, da Teile des Xcode-Projekts versioniert werden müssen.
+# Capacitor iOS (Phase 7A): ios/ wird versioniert. Generierte bzw. lokale Teile ignoriert
+# ios/.gitignore (Web-Kopie App/App/public, capacitor.config.json im Container, DerivedData,
+# xcuserdata, Pods). Lokale Xcode-Benutzerdaten zusätzlich hier:
+xcuserdata/
+*.xcuserstate
+DerivedData/
 
 # Produktionspaket-Artefakte (Bootstrap-SQL, Dry-Run-Nachweise, Referenzen) – nie committen
 local-release/

@@ -25,8 +25,12 @@ try {
   // nur von dieser Build-Konstante abhängt, entfernt Vite den jeweils anderen App-Code.
   if (__WC_FAMILY_BUILD__) {
     if (mode !== BACKEND_MODES.FAMILY) throw new Error('Build- und Laufzeitkonfiguration passen nicht zusammen (FAMILY-Build).')
-    getFamilyConfig(runtimeEnv) // wirft bei fehlender/unzulässiger FAMILY-Konfiguration
-    import('./family/FamilyApp.jsx').then((m) => render(<m.default />))
+    const familyConfig = getFamilyConfig(runtimeEnv) // wirft bei fehlender/unzulässiger FAMILY-Konfiguration
+    // Phase 7A: nativer Start-Schutz (iOS nur als Test-Build gegen das Testprojekt), danach die App
+    import('./family/nativeBoot.js')
+      .then((b) => { b.assertNativeRuntime({ familyUrl: familyConfig.url, nativeTestRef: __WC_NATIVE_TEST_REF__ }); return import('./family/FamilyApp.jsx') })
+      .then((m) => render(<m.default />))
+      .catch((e) => { console.error('[config]', e.message); render(<ConfigError message={e.message} />) })
   } else {
     if (mode === BACKEND_MODES.FAMILY) throw new Error('Build- und Laufzeitkonfiguration passen nicht zusammen (LEGACY-Build).')
     import('./App.jsx').then((m) => render(<m.default />))

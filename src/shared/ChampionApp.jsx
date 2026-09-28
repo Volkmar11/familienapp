@@ -70,6 +70,13 @@ function getCurrentStreak(completions) {
 }
 
 // ── Helpers ──
+// FAMILY (Phase 7A): Symbol-Buttons im Elternbereich als Gruppe, die auf schmalen Displays
+// unter den Namen umbricht (Tippziele ≥ 44 px). LEGACY: Fragment → DOM und Layout unverändert.
+function IconGroup({ fam, children }) {
+  if (!fam) return <>{children}</>;
+  return <span style={{display:"flex",gap:4,marginLeft:"auto",flexShrink:0}}>{children}</span>;
+}
+
 function Avatar({ member, size = 28 }) {
   const [failed, setFailed] = useState(null); // URL, die nicht geladen werden konnte → Emoji
   if (member?.photo && failed !== member.photo) return <img src={member.photo} alt={member.name} onError={()=>setFailed(member.photo)} style={{width:size,height:size,borderRadius:"50%",objectFit:"cover",border:`2px solid ${member.color}`}}/>;
@@ -287,7 +294,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
   const famRemove=(kind,item)=>{if(busy||!confirm(`„${item.name}“: ${REMOVE_ASK[kind]}`))return;famAct(()=>actions.remove(kind,item.id));};
   const famSave=async(kind,item,close)=>{const r=await runAction(()=>actions.save(kind,item));if(!r)return;if(r.ok){close();if(r.warning)flash(r.warning,4000);else flash(r.created?"Erstellt!":"Gespeichert!");}else flash(r.message,3500);};
   const moveBtns=(kind,list,item)=>{const ids=list.map(x=>x.id),i=ids.indexOf(item.id);const mv=(dlt)=>{const j=i+dlt;if(j<0||j>=ids.length||busy)return;const next=[...ids];[next[i],next[j]]=[next[j],next[i]];famAct(()=>actions.reorder(kind,next),"Reihenfolge gespeichert");};
-    const st=(on)=>({background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 7px",cursor:on?"pointer":"default",color:"#c7d2fe",opacity:on?1:0.35,fontSize:12});
+    const st=(on)=>({background:"rgba(255,255,255,0.1)",border:"none",borderRadius:10,padding:"4px 7px",cursor:on?"pointer":"default",color:"#c7d2fe",opacity:on?1:0.35,fontSize:12,minWidth:44,minHeight:44,boxSizing:"border-box"});
     return <><button aria-label={`Nach oben: ${item.name}`} disabled={i===0||busy} onClick={()=>mv(-1)} style={st(i>0)}>▲</button><button aria-label={`Nach unten: ${item.name}`} disabled={i===ids.length-1||busy} onClick={()=>mv(1)} style={st(i<ids.length-1)}>▼</button></>;};
   const archivedList=(kind,items,label)=>fam&&items&&items.length>0&&<div style={{marginTop:10,paddingTop:8,borderTop:"1px dashed rgba(255,255,255,0.15)"}} data-testid={`archived-${kind}`}>
     <div style={{fontSize:12,color:"#a5b4fc",marginBottom:4}}>🗄️ Archiviert ({items.length}) – {label}</div>
@@ -424,9 +431,15 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
     bar:{height:8,background:"rgba(255,255,255,0.1)",borderRadius:99,overflow:"hidden",marginTop:4},
     barF:(pct,c)=>({height:"100%",width:`${Math.min(pct,100)}%`,background:c,borderRadius:99,transition:"width 0.6s ease"}),
     modalBg:{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:200,display:"flex",alignItems:"flex-end",justifyContent:"center"},
-    modalBox:{background:"#fff",borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:480,maxHeight:"80vh",overflow:"auto",color:"#1e293b"},
+    // FAMILY (7A): unterer Rand über dem Home-Indicator (Safe Area); LEGACY unverändert
+    modalBox:{background:"#fff",borderRadius:"24px 24px 0 0",padding:24,width:"100%",maxWidth:480,maxHeight:"80vh",overflow:"auto",color:"#1e293b",...(fam?{paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 24px)",boxSizing:"border-box"}:{})},
     label:{fontSize:13,fontWeight:700,color:"#64748b",display:"block",marginBottom:4},
     mbtn:(a)=>({padding:"6px 14px",borderRadius:99,border:"none",background:a?"#4338ca":"#f1f5f9",color:a?"#fff":"#64748b",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}),
+    // Symbol-Button im Elternbereich: FAMILY ≥ 44×44 px (Apple HIG), LEGACY unverändert
+    ib:(bg)=>fam?{background:bg,border:"none",borderRadius:10,padding:"4px 8px",cursor:"pointer",minWidth:44,minHeight:44,display:"inline-flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}:{background:bg,border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"},
+    // Zeile im Elternbereich: FAMILY darf umbrechen (Name behält Mindestbreite)
+    row:fam?{display:"flex",alignItems:"center",flexWrap:"wrap",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}:{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"},
+    rowName:fam?{flex:1,fontSize:13,minWidth:110}:{flex:1,fontSize:13},
   };
 
   // ── NAV ──
@@ -780,7 +793,7 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
         <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔔 Benachrichtigungen</div>
         {unreadNotifs.map(n=><div key={n.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe",fontSize:13}}>
           <span style={{flex:1}}>{n.message}</span>
-          {fam&&<button aria-label={`Gesehen: ${n.message}`} disabled={busy} onClick={()=>famAct(()=>actions.acknowledgeRedemptions([n.redemptionId]),"Als gesehen markiert")} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc",fontFamily:"inherit"}}>✓ Gesehen</button>}
+          {fam&&<button aria-label={`Gesehen: ${n.message}`} disabled={busy} onClick={()=>famAct(()=>actions.acknowledgeRedemptions([n.redemptionId]),"Als gesehen markiert")} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:10,padding:"4px 10px",cursor:"pointer",fontSize:12,color:"#a5b4fc",fontFamily:"inherit",minHeight:44}}>✓ Gesehen</button>}
           {!fam&&<button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(nn=>nn.id===n.id?{...nn,read:true}:nn)}))} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc"}}>✓ Gelesen</button>}
         </div>)}
         {fam&&unreadNotifs.length>1&&<button disabled={busy} onClick={()=>famAct(()=>actions.acknowledgeRedemptions(unreadNotifs.map(n=>n.redemptionId)),"Alle als gesehen markiert")} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>Alle als gesehen markieren</button>}
@@ -810,13 +823,13 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📋 Aufgaben ({data.tasks.length})</div>
           {<button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:fam?(cats[0]?.name||""):"Ordnung",recurring:"daily",assignedTo:[],photo:null,...(fam?{active:true}:{})})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
-        {data.tasks.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
+        {data.tasks.map(t=><div key={t.id} style={S.row}>
           {t.photo?<img src={t.photo} style={{width:24,height:24,borderRadius:6,objectFit:"cover"}}/>:<span style={{fontSize:18}}>{t.emoji}</span>}
-          <div style={{flex:1,fontSize:13}}>{t.name} {t.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({t.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
+          <div style={S.rowName}>{t.name} {t.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({t.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{t.points}⭐</span>
-          {fam&&moveBtns("task",data.tasks,t)}
-          {<button aria-label={`Bearbeiten: ${t.name}`} onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {<button aria-label={`Löschen: ${t.name}`} onClick={()=>{if(fam){famRemove("task",t);return;}update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+          <IconGroup fam={fam}>{fam&&moveBtns("task",data.tasks,t)}
+          {<button aria-label={`Bearbeiten: ${t.name}`} onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={S.ib("rgba(255,255,255,0.1)")}>✏️</button>}
+          {<button aria-label={`Löschen: ${t.name}`} onClick={()=>{if(fam){famRemove("task",t);return;}update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={S.ib("rgba(239,68,68,0.2)")}>🗑️</button>}</IconGroup>
         </div>)}
         {archivedList("task",data.archived?.tasks,"Verlauf bleibt erhalten")}
       </div>
@@ -838,13 +851,13 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
             ))}
           </div>
         </div>}
-        {data.rewards.map(r=><div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
+        {data.rewards.map(r=><div key={r.id} style={S.row}>
           <span style={{fontSize:18}}>{r.emoji}</span>
-          <div style={{flex:1,fontSize:13}}>{r.name} {r.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({r.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
+          <div style={S.rowName}>{r.name} {r.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({r.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{r.pointsCost}⭐</span>
-          {fam&&moveBtns("reward",data.rewards,r)}
-          {<button aria-label={`Bearbeiten: ${r.name}`} onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {<button aria-label={`Löschen: ${r.name}`} onClick={()=>{if(fam){famRemove("reward",r);return;}update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+          <IconGroup fam={fam}>{fam&&moveBtns("reward",data.rewards,r)}
+          {<button aria-label={`Bearbeiten: ${r.name}`} onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={S.ib("rgba(255,255,255,0.1)")}>✏️</button>}
+          {<button aria-label={`Löschen: ${r.name}`} onClick={()=>{if(fam){famRemove("reward",r);return;}update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={S.ib("rgba(239,68,68,0.2)")}>🗑️</button>}</IconGroup>
         </div>)}
         {archivedList("reward",data.archived?.rewards,"bisherige Einlösungen bleiben erhalten")}
       </div>
@@ -855,11 +868,11 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>{fam?"🧒 Kinder":"👨‍👩‍👧‍👦 Mitglieder"}</div>
           {<button onClick={()=>setEditMember({id:"",name:"",emoji:fam?"🙂":"😊",color:fam?"#16a34a":"#6366f1",isAdmin:false,photo:null,...(fam?{active:true}:{})})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
-        {data.members.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
-          <Avatar member={m} size={24}/><div style={{flex:1,fontSize:13}}>{m.name} {m.isAdmin&&<span style={{color:"#6366f1"}}>(Admin)</span>}</div>
-          {fam&&moveBtns("member",data.members,m)}
-          {<button aria-label={`Bearbeiten: ${m.name}`} onClick={()=>setEditMember({...m,photo:m.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {fam&&<button aria-label={`Löschen: ${m.name}`} onClick={()=>famRemove("member",m)} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+        {data.members.map(m=><div key={m.id} style={S.row}>
+          <Avatar member={m} size={24}/><div style={S.rowName}>{m.name} {m.isAdmin&&<span style={{color:"#6366f1"}}>(Admin)</span>}</div>
+          <IconGroup fam={fam}>{fam&&moveBtns("member",data.members,m)}
+          {<button aria-label={`Bearbeiten: ${m.name}`} onClick={()=>setEditMember({...m,photo:m.photo||null})} style={S.ib("rgba(255,255,255,0.1)")}>✏️</button>}
+          {fam&&<button aria-label={`Löschen: ${m.name}`} onClick={()=>famRemove("member",m)} style={S.ib("rgba(239,68,68,0.2)")}>🗑️</button>}</IconGroup>
         </div>)}
         {archivedList("member",data.archived?.members,"Punkte und Verlauf bleiben erhalten")}
       </div>
@@ -870,12 +883,12 @@ export default function ChampionApp({ data, update: persistUpdate, readOnly = fa
           <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📂 Kategorien</div>
           {<button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>}
         </div>
-        {cats.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
+        {cats.map(c=><div key={c.id} style={S.row}>
           <span style={{fontSize:18}}>{c.emoji}</span>
-          <div style={{flex:1,fontSize:13}}>{c.name} {c.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({c.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
-          {fam&&moveBtns("category",cats,c)}
-          {<button aria-label={`Bearbeiten: ${c.name}`} onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>}
-          {<button aria-label={`Löschen: ${c.name}`} onClick={()=>{if(fam){famRemove("category",c);return;}const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>}
+          <div style={S.rowName}>{c.name} {c.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({c.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
+          <IconGroup fam={fam}>{fam&&moveBtns("category",cats,c)}
+          {<button aria-label={`Bearbeiten: ${c.name}`} onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={S.ib("rgba(255,255,255,0.1)")}>✏️</button>}
+          {<button aria-label={`Löschen: ${c.name}`} onClick={()=>{if(fam){famRemove("category",c);return;}const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={S.ib("rgba(239,68,68,0.2)")}>🗑️</button>}</IconGroup>
         </div>)}
       </div>
 
