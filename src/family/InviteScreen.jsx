@@ -12,6 +12,9 @@ export function InviteScreen({ token, email, onJoined, onCancel }) {
   const [st, setSt] = useState({ status: "checking" }); // checking | valid | invalid | accepting | joined | member
   const [error, setError] = useState("");
 
+  // Token sofort verwerfen, sobald die Einladung erledigt ist (angenommen, bereits Mitglied, ungültig)
+  useEffect(() => { if (["joined", "member", "invalid"].includes(st.status)) Inv.clearPendingInvite(); }, [st.status]);
+
   useEffect(() => {
     let active = true;
     (async () => {

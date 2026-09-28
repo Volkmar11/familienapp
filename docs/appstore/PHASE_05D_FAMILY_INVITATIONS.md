@@ -159,17 +159,37 @@ Ungültige, abgelaufene, verwendete und widerrufene Einladungen erhalten dieselb
 
 ## 15. Tests
 
-Siehe Handoff `CHATGPT_HANDOFF_PHASE_05D.md`, Abschnitt 13, für Ergebnisse und Zahlen.
+| Suite | Ergebnis |
+|---|---|
+| Unit (`node --test tests/*.test.mjs`, davon neu `tests/familyInvitations.test.mjs`) | 134/134 |
+| SQL `supabase/tests/family_invitations_check.sql` – lokal und im Testprojekt | 31/31 |
+| SQL `account_lifecycle_check.sql` (5C) – lokal | 22/22 |
+| Integration `tests/supabase/family-invitations.test.mjs` | 49/49 |
+| Integration `account-lifecycle.test.mjs` (jetzt über echte Einladungen, ohne `STALE`) | 34/34 |
+| Ältere Integrations-Suites: data, mutations, admin, champion-realtime, two-device, onboarding, auth, media | 18, 44, 60, 17, 27, 29, 12, 30 – alle grün |
+| Browser 393×852 (Einladung erzeugen/teilen/widerrufen, Link ohne Login, Registrierung, Confirm-Email-Codepfad simuliert, Code-Eingabe, Befördern, Entfernen, Verlassen) | 40/40 |
+| Zwei Geräte (Beförderung ohne Neuanmeldung; entfernter parent wird automatisch hinausgeworfen) | 10/10 |
+| Browser-Regression 5C (`ui5c`, `ui5c-2dev`, jetzt über Einladungen) | 34/34, 8/8 |
 
-- Unit: `tests/familyInvitations.test.mjs`
-- Integration: `tests/supabase/family-invitations.test.mjs`; `tests/supabase/account-lifecycle.test.mjs` nutzt jetzt echte Einladungen.
-- SQL: `supabase/tests/family_invitations_check.sql` (TTL- und Fensterablauf durch Zurückdatieren, Rechte, Publikation, Kaskaden)
-- Browser (393×852) und Zwei-Geräte-Test als lokale Skripte (nicht im Repo, da mit Wegwerf-Konten).
+Abgedeckt sind unter anderem:
+- paralleles Annehmen (5 Nutzer, genau einer erfolgreich) und paralleles Verlassen (genau einer erfolgreich)
+- Rate-Limits inklusive Ablauf der Zeitfenster (per SQL zurückdatiert)
+- direktes INSERT/UPDATE/DELETE auf `family_members` wirkungslos
+- Realtime-Signal an ein gerade entferntes Konto (Node, echte WebSockets)
+
+Der Confirm-Email-Codepfad ist simuliert: Die Signup-Antwort ohne Session wird abgefangen. Geprüft werden `redirect_to = <Herkunft>/?invite=<token>` und die Rückkehr über den Bestätigungslink in einem neuen Tab.
+
+Browser- und Zwei-Geräte-Skripte liegen nicht im Repo, weil sie Wegwerf-Konten anlegen. Chromium bekommt im Proxy keine WebSockets; der Browser aktualisiert deshalb über das Vordergrund-Ereignis, das Realtime-Signal ist in Node geprüft.
+
+`auth-rls-realtime.test.mjs` (Phase 3) wurde nicht ausgeführt, weil die Passwörter der festen Testkonten in dieser Sitzung nicht vorliegen.
 
 ## 16. Legacy Regression
 
-- Der LEGACY-Build lädt keine der neuen Dateien.
-- Regressionsläufe gegen die gespeicherten Referenzen und der Fototest werden wie in den Vorphasen durchgeführt (Ergebnis im Handoff).
+- Der LEGACY-Build ist byte-identisch zum Stand nach Phase 5C.
+- Regressionsläufe 1 und 2 sind identisch zu den Referenzen.
+- Lauf 3 wich beim ersten Mal nur durch einen kurzlebigen Toast („Gespeichert!“) ab; die Wiederholung ist identisch.
+- Fototest 8/8.
+- Bundle: keine Tokens, keine Testkonten, kein `service_role`-Schlüssel (einziger Treffer ist die Schutzregel in `backend.js`), keine Test-Hintertür.
 
 ## 17. Voraussetzungen Produktion
 
