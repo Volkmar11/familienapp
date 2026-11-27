@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { LANGS, LOCALE, detectLang, storeLang, makeT, defaultCategories, defaultTasks, defaultMembers, rewardSuggestions, badgeTexts, CAT_ALIASES, CATEGORY_EMOJI_FALLBACK } from "./i18n.js";
 
 // ─── SUPABASE ───
 const supabase = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY);
@@ -12,20 +13,12 @@ const isoDate = (d) => new Date(d).toISOString().slice(0,10);
 const today = () => isoDate(new Date());
 const weekStart = (d = new Date()) => { const dd = new Date(d); const day = dd.getDay(); dd.setDate(dd.getDate() - day + (day===0?-6:1)); dd.setHours(0,0,0,0); return dd; };
 const monthStart = (d = new Date()) => { const dd = new Date(d); dd.setDate(1); dd.setHours(0,0,0,0); return dd; };
-const dayName = (d) => ["So","Mo","Di","Mi","Do","Fr","Sa"][new Date(d).getDay()];
-const fmtDate = (d) => new Date(d).toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"});
+let CUR_LOCALE = "de-DE";
+const dayName = (d) => new Date(d).toLocaleDateString(CUR_LOCALE,{weekday:"short"}).replace(".","").slice(0,3);
+const fmtDate = (d) => new Date(d).toLocaleDateString(CUR_LOCALE,{day:"2-digit",month:"2-digit"});
 const prevWeekStart = () => { const d = weekStart(); d.setDate(d.getDate()-7); return d; };
 const prevWeekEnd = () => { const d = weekStart(); d.setDate(d.getDate()-1); d.setHours(23,59,59,999); return d; };
 
-const DEFAULT_CATEGORIES = [
-  {id:"c1",name:"Ordnung",emoji:"🧹",assignedTo:[]},
-  {id:"c2",name:"Küche",emoji:"🍳",assignedTo:[]},
-  {id:"c3",name:"Haushalt",emoji:"🏠",assignedTo:[]},
-  {id:"c4",name:"Garten",emoji:"🌱",assignedTo:[]},
-  {id:"c5",name:"Sonstiges",emoji:"📦",assignedTo:[]},
-];
-// Legacy fallback
-const CATEGORY_EMOJI_FALLBACK = {Ordnung:"🧹",Küche:"🍳",Haushalt:"🏠",Garten:"🌱",Sonstiges:"📦"};
 
 const TASK_CLIPARTS = [
   "👟","🧥","🛏️","🧸","🛋️","🍽️","✨","🍴","🗑️","🧹",
@@ -33,40 +26,19 @@ const TASK_CLIPARTS = [
   "🚗","🧺","🪴","🍳","🧊","📦","✏️","🎒","🛁","🪥",
 ];
 
-const REWARD_SUGGESTIONS = [
-  {name:"Eis essen gehen",emoji:"🍦",pointsCost:100},
-  {name:"30 Min extra Bildschirmzeit",emoji:"📱",pointsCost:80},
-  {name:"Wunschessen",emoji:"🍕",pointsCost:150},
-  {name:"Ausflug wählen",emoji:"🎢",pointsCost:300},
-  {name:"Kino-Abend",emoji:"🎬",pointsCost:200},
-  {name:"Freund einladen",emoji:"🏠",pointsCost:120},
-  {name:"Spielzeug aussuchen (bis 10€)",emoji:"🧸",pointsCost:250},
-  {name:"Ausschlafen am Wochenende",emoji:"😴",pointsCost:60},
-  {name:"Lieblingssüßigkeit",emoji:"🍫",pointsCost:50},
-  {name:"1 Stunde Tablet/Konsole",emoji:"🎮",pointsCost:100},
-  {name:"Bastelmaterial kaufen",emoji:"🎨",pointsCost:150},
-  {name:"Buch aussuchen",emoji:"📖",pointsCost:120},
-  {name:"Mini-Ausflug (Spielplatz, Park)",emoji:"🌳",pointsCost:80},
-  {name:"Besonderes Frühstück",emoji:"🥞",pointsCost:70},
-  {name:"Übernachtung bei Freund/in",emoji:"🛏️",pointsCost:200},
-  {name:"Fahrrad-Tour",emoji:"🚲",pointsCost:100},
-  {name:"Gemeinsam backen",emoji:"🧁",pointsCost:90},
-  {name:"Zoo / Tierpark",emoji:"🦁",pointsCost:350},
-  {name:"Schwimmbad",emoji:"🏊",pointsCost:150},
-  {name:"Papa/Mama-Zeit (1 Stunde nur für dich)",emoji:"💕",pointsCost:100},
-];
 
+const catPts = (c,tasks,key) => c.filter(x=>{const t=tasks.find(tt=>tt.id===x.taskId);return CAT_ALIASES[key].includes(t?.category)}).reduce((s,x)=>s+x.points,0);
 const BADGES = [
-  { id:"b1", name:"Erste Schritte", emoji:"🌟", desc:"Erste Aufgabe erledigt", check: (c) => c.length >= 1 },
-  { id:"b2", name:"Fleißige Biene", emoji:"🐝", desc:"10 Aufgaben erledigt", check: (c) => c.length >= 10 },
-  { id:"b3", name:"Superheld", emoji:"🦸", desc:"50 Aufgaben erledigt", check: (c) => c.length >= 50 },
-  { id:"b4", name:"Ordnungsprofi", emoji:"✨", desc:"100 Punkte in Ordnung", check: (c,tasks) => c.filter(x=>{const t=tasks.find(tt=>tt.id===x.taskId);return t?.category==="Ordnung"}).reduce((s,x)=>s+x.points,0)>=100 },
-  { id:"b5", name:"Küchenchef", emoji:"👨‍🍳", desc:"50 Punkte in Küche", check: (c,tasks) => c.filter(x=>{const t=tasks.find(tt=>tt.id===x.taskId);return t?.category==="Küche"}).reduce((s,x)=>s+x.points,0)>=50 },
-  { id:"b6", name:"Gärtner", emoji:"🌻", desc:"50 Punkte im Garten", check: (c,tasks) => c.filter(x=>{const t=tasks.find(tt=>tt.id===x.taskId);return t?.category==="Garten"}).reduce((s,x)=>s+x.points,0)>=50 },
-  { id:"b7", name:"3-Tage-Streak", emoji:"🔥", desc:"3 Tage am Stück aktiv", check: (c) => getMaxStreak(c)>=3 },
-  { id:"b8", name:"7-Tage-Streak", emoji:"💎", desc:"7 Tage am Stück aktiv", check: (c) => getMaxStreak(c)>=7 },
-  { id:"b9", name:"Wochenchampion", emoji:"🏆", desc:"Einmal Wochenchampion", check: (c,tasks,data,mid) => (data.championHistory||[]).some(h=>h.memberId===mid) },
-  { id:"b10", name:"100er Club", emoji:"💯", desc:"100 Punkte in einer Woche", check: (c) => { const ws=weekStart(); return c.filter(x=>new Date(x.date)>=ws).reduce((s,x)=>s+x.points,0)>=100; }},
+  { id:"b1", emoji:"🌟", check: (c) => c.length >= 1 },
+  { id:"b2", emoji:"🐝", check: (c) => c.length >= 10 },
+  { id:"b3", emoji:"🦸", check: (c) => c.length >= 50 },
+  { id:"b4", emoji:"✨", check: (c,tasks) => catPts(c,tasks,"tidy")>=100 },
+  { id:"b5", emoji:"👨‍🍳", check: (c,tasks) => catPts(c,tasks,"kitchen")>=50 },
+  { id:"b6", emoji:"🌻", check: (c,tasks) => catPts(c,tasks,"garden")>=50 },
+  { id:"b7", emoji:"🔥", check: (c) => getMaxStreak(c)>=3 },
+  { id:"b8", emoji:"💎", check: (c) => getMaxStreak(c)>=7 },
+  { id:"b9", emoji:"🏆", check: (c,tasks,data,mid) => (data.championHistory||[]).some(h=>h.memberId===mid) },
+  { id:"b10", emoji:"💯", check: (c) => { const ws=weekStart(); return c.filter(x=>new Date(x.date)>=ws).reduce((s,x)=>s+x.points,0)>=100; }},
 ];
 
 function getMaxStreak(completions) {
@@ -93,41 +65,14 @@ function getCurrentStreak(completions) {
   return streak;
 }
 
-const DEFAULT_TASKS = [
-  {id:"t1",name:"Schuhe aufräumen",emoji:"👟",points:5,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t2",name:"Jacke aufhängen",emoji:"🧥",points:5,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t3",name:"Zimmer aufräumen",emoji:"🛏️",points:15,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t4",name:"Spielzeug wegräumen",emoji:"🧸",points:10,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t5",name:"Wohnzimmer aufräumen",emoji:"🛋️",points:15,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t6",name:"Spülmaschine einräumen",emoji:"🍽️",points:15,category:"Küche",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t7",name:"Spülmaschine ausräumen",emoji:"✨",points:15,category:"Küche",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t8",name:"Tisch decken",emoji:"🍴",points:10,category:"Küche",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t9",name:"Müll rausbringen",emoji:"🗑️",points:10,category:"Haushalt",recurring:"weekly",assignedTo:[],photo:null},
-  {id:"t10",name:"Saugen",emoji:"🧹",points:20,category:"Haushalt",recurring:"weekly",assignedTo:[],photo:null},
-  {id:"t11",name:"Wäsche wegräumen",emoji:"👕",points:15,category:"Haushalt",recurring:"weekly",assignedTo:[],photo:null},
-  {id:"t12",name:"Fahrradhelm aufräumen",emoji:"⛑️",points:5,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null},
-  {id:"t13",name:"Gartenarbeit",emoji:"🌱",points:20,category:"Garten",recurring:"weekly",assignedTo:[],photo:null},
-  {id:"t14",name:"Grünstreifen umgraben",emoji:"⛏️",points:25,category:"Garten",recurring:"once",assignedTo:[],photo:null},
-];
-
-const DEFAULT_MEMBERS = [
-  {id:"m1",name:"Papa",color:"#2563eb",isAdmin:true,emoji:"👨",photo:null},
-  {id:"m2",name:"Mama",color:"#dc2626",isAdmin:true,emoji:"👩",photo:null},
-  {id:"m3",name:"Marlon",color:"#16a34a",isAdmin:false,emoji:"🧑",photo:null},
-  {id:"m4",name:"Clara",color:"#eab308",isAdmin:false,emoji:"👧",photo:null},
-  {id:"m5",name:"Jonah",color:"#f97316",isAdmin:false,emoji:"👶",photo:null},
-];
-
-const DEFAULT_DATA = {
-  members: DEFAULT_MEMBERS, tasks: DEFAULT_TASKS, completions: [],
-  rewards: [
-    {id:"r1",name:"Eis essen gehen",pointsCost:100,emoji:"🍦",assignedTo:[]},
-    {id:"r2",name:"30 Min extra Bildschirmzeit",pointsCost:80,emoji:"📱",assignedTo:[]},
-    {id:"r3",name:"Wunschessen",pointsCost:150,emoji:"🍕",assignedTo:[]},
-    {id:"r4",name:"Ausflug wählen",pointsCost:300,emoji:"🎢",assignedTo:[]},
-  ],
-  redeemedRewards: [], adminPin:"1234", championHistory: [], needsConfirmation: true,
-  notifications: [], lastChampionWeek: null, customCategories: null,
+const defaultData = (lang) => {
+  const sugg = rewardSuggestions(lang);
+  return {
+    members: defaultMembers(lang), tasks: defaultTasks(lang), completions: [],
+    rewards: sugg.slice(0,4).map((r,i)=>({id:`r${i+1}`,name:r.name,pointsCost:r.pointsCost,emoji:r.emoji,assignedTo:[]})),
+    redeemedRewards: [], adminPin:"1234", championHistory: [], needsConfirmation: true,
+    notifications: [], lastChampionWeek: null, customCategories: null,
+  };
 };
 
 // ── Helpers ──
@@ -136,7 +81,7 @@ function Avatar({ member, size = 28 }) {
   return <span style={{fontSize:size*0.85}}>{member?.emoji||"😊"}</span>;
 }
 
-function PhotoUpload({ onPhoto, currentPhoto, label }) {
+function PhotoUpload({ onPhoto, currentPhoto, label, t }) {
   const fileRef = useRef(null);
   const handleFile = (e) => {
     const file = e.target.files?.[0]; if (!file) return;
@@ -158,7 +103,7 @@ function PhotoUpload({ onPhoto, currentPhoto, label }) {
     <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
     <button onClick={()=>fileRef.current?.click()} style={{background:"#f1f5f9",border:"2px dashed #cbd5e1",borderRadius:16,padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,width:"100%",fontFamily:"inherit",fontSize:13,color:"#64748b"}}>
       {currentPhoto ? <img src={currentPhoto} style={{width:36,height:36,borderRadius:"50%",objectFit:"cover"}}/> : <span style={{fontSize:24}}>📷</span>}
-      <span>{label || (currentPhoto?"Foto ändern":"Foto wählen")}</span>
+      <span>{label || (currentPhoto?t("changePhoto"):t("choosePhoto"))}</span>
     </button>
   </>;
 }
@@ -176,6 +121,11 @@ function Confetti({show}){
 const isVisibleTo = (item, memberId) => !item.assignedTo || item.assignedTo.length === 0 || item.assignedTo.includes(memberId);
 
 export default function App(){
+  const [lang,setLangState]=useState(detectLang);
+  const t=makeT(lang);
+  CUR_LOCALE=LOCALE[lang];
+  const setLang=(l)=>{storeLang(l);setLangState(l);};
+  useEffect(()=>{document.documentElement.lang=lang;document.title=t("appName");},[lang]);
   const [data,setData]=useState(null);
   const [loading,setLoading]=useState(true);
   const [screen,setScreen]=useState("home");
@@ -184,7 +134,7 @@ export default function App(){
   const [pin,setPin]=useState("");
   const [confetti,setConfetti]=useState(false);
   const [toast,setToast]=useState(null);
-  const [filter,setFilter]=useState("Alle");
+  const [filter,setFilter]=useState("__all__");
   const [editTask,setEditTask]=useState(null);
   const [editMember,setEditMember]=useState(null);
   const [editReward,setEditReward]=useState(null);
@@ -197,7 +147,7 @@ export default function App(){
   const [showPointsManager,setShowPointsManager]=useState(false);
   const [pointsManagerMember,setPointsManagerMember]=useState(null);
 
-  useEffect(()=>{(async()=>{const s=await load();setData(s||{...DEFAULT_DATA});setLoading(false);})();},[]);
+  useEffect(()=>{(async()=>{const s=await load();setData(s||defaultData(detectLang()));setLoading(false);})();},[]);
 
   useEffect(()=>{
     const channel = supabase.channel("app_state_changes")
@@ -265,10 +215,10 @@ export default function App(){
   const champ=champData[0]?.wp>0?champData[0]:null;
 
   // Dynamic categories
-  const cats = data.customCategories || DEFAULT_CATEGORIES;
+  const cats = data.customCategories || defaultCategories(lang);
   const getCatEmoji = (catName) => { const c=cats.find(cc=>cc.name===catName); return c?.emoji || CATEGORY_EMOJI_FALLBACK[catName] || "📦"; };
   const visibleCats = active ? cats.filter(c=>!c.assignedTo||c.assignedTo.length===0||c.assignedTo.includes(active.id)) : cats;
-  const categoryNames = ["Alle",...visibleCats.map(c=>c.name)];
+  const categoryNames = ["__all__",...visibleCats.map(c=>c.name)];
 
   // Day leader (for crown)
   const todayC = data.completions.filter(c=>isoDate(c.date)===today()&&c.confirmed!==false);
@@ -277,7 +227,7 @@ export default function App(){
   const dayLeaderIds = maxDayPts>0 ? dayScores.filter(d=>d.pts===maxDayPts).map(d=>d.id) : [];
 
   const visibleTasks = active ? data.tasks.filter(t=>isVisibleTo(t,active.id)) : data.tasks;
-  const filtered=filter==="Alle"?visibleTasks:visibleTasks.filter(t=>t.category===filter);
+  const filtered=filter==="__all__"?visibleTasks:visibleTasks.filter(t=>t.category===filter);
 
   const todayCompForTask=(tid,mid)=>data.completions.filter(c=>c.taskId===tid&&c.memberId===mid&&isoDate(c.date)===today());
 
@@ -292,7 +242,7 @@ export default function App(){
     }]}));
     const nw=weekPts(active.id)+task.points;
     if((nw>=50&&weekPts(active.id)<50)||(nw>=100&&weekPts(active.id)<100)) boom();
-    flash(`+${task.points} ⭐ ${active.name}!${needsC?" (wartet auf Bestätigung)":""}`);
+    flash(t("toastPoints",{n:task.points,name:active.name})+(needsC?t("awaitingConfirm"):""));
   };
 
   const undoTask=(task)=>{
@@ -301,23 +251,23 @@ export default function App(){
     if(comp.length===0) return;
     const lastComp=comp[comp.length-1];
     update(prev=>({...prev,completions:prev.completions.filter(c=>c.id!==lastComp.id)}));
-    flash("↩️ Rückgängig gemacht");
+    flash(t("undone"));
   };
 
-  const confirmC=(cid)=>{update(prev=>({...prev,completions:prev.completions.map(c=>c.id===cid?{...c,confirmed:true,needsConfirm:false}:c)}));flash("✅ Bestätigt!");};
-  const rejectC=(cid)=>{update(prev=>({...prev,completions:prev.completions.filter(c=>c.id!==cid)}));flash("❌ Abgelehnt");};
+  const confirmC=(cid)=>{update(prev=>({...prev,completions:prev.completions.map(c=>c.id===cid?{...c,confirmed:true,needsConfirm:false}:c)}));flash(t("confirmed"));};
+  const rejectC=(cid)=>{update(prev=>({...prev,completions:prev.completions.filter(c=>c.id!==cid)}));flash(t("rejected"));};
 
   const redeemReward=(reward)=>{
     if(!active) return;
     const a=avail(active.id);
-    if(a<reward.pointsCost){flash(`Nicht genug! (${a}/${reward.pointsCost})`);return;}
+    if(a<reward.pointsCost){flash(t("notEnough",{a,c:reward.pointsCost}));return;}
     // Add notification for admins
-    const notif = {id:uid(),type:"reward",message:`${active.emoji} ${active.name} hat "${reward.name}" (${reward.pointsCost}⭐) eingelöst!`,date:new Date().toISOString(),read:false,memberId:active.id};
+    const notif = {id:uid(),type:"reward",emoji:active.emoji,name:active.name,rewardName:reward.name,pointsCost:reward.pointsCost,date:new Date().toISOString(),read:false,memberId:active.id};
     update(prev=>({...prev,
       redeemedRewards:[...(prev.redeemedRewards||[]),{id:uid(),rewardId:reward.id,rewardName:reward.name,memberId:active.id,pointsCost:reward.pointsCost,date:new Date().toISOString()}],
       notifications:[...(prev.notifications||[]),notif],
     }));
-    boom();flash(`🎉 ${reward.name} eingelöst!`);
+    boom();flash(t("redeemed",{x:reward.name}));
   };
 
   const daysActive=(mid)=>{const d=new Set(mc(mid).map(c=>isoDate(c.date)));return d.size||1;};
@@ -348,7 +298,7 @@ export default function App(){
   // ── NAV ──
   const renderNav=()=>(
     <div style={S.nav}>
-      {[{id:"home",e:"🏠",l:"Home"},{id:"rewards",e:"🎁",l:"Belohnungen"},{id:"stats",e:"📊",l:"Statistik"},{id:"admin",e:"⚙️",l:"Verwalten"}].map(n=>(
+      {[{id:"home",e:"🏠",l:t("nav_home")},{id:"rewards",e:"🎁",l:t("nav_rewards")},{id:"stats",e:"📊",l:t("nav_stats")},{id:"admin",e:"⚙️",l:t("nav_admin")}].map(n=>(
         <button key={n.id} onClick={()=>{setScreen(n.id);setSelectedStat(null);if(n.id!=="admin")setAdminMode(false);}} style={S.navB(screen===n.id)}>
           <span style={{fontSize:22}}>{n.e}</span>{n.l}
           {n.id==="admin"&&(pendingConfirm.length+unreadNotifs.length)>0&&<span style={{position:"absolute",top:0,right:6,background:"#ef4444",color:"#fff",borderRadius:99,width:18,height:18,fontSize:11,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center"}}>{pendingConfirm.length+unreadNotifs.length}</span>}
@@ -364,14 +314,14 @@ export default function App(){
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
           <span style={{fontSize:36}}>🏆</span>
           <div>
-            <div style={{fontSize:24,fontWeight:800,lineHeight:1.1}}>Wochen Champion</div>
-            <div style={{fontSize:13,opacity:0.8}}>Wer hat die meisten Punkte?</div>
+            <div style={{fontSize:24,fontWeight:800,lineHeight:1.1}}>{t("appName")}</div>
+            <div style={{fontSize:13,opacity:0.8}}>{t("tagline")}</div>
           </div>
         </div>
         {champ&&<div style={{marginTop:10,background:"linear-gradient(135deg,rgba(251,191,36,0.25),rgba(251,191,36,0.1))",borderRadius:16,padding:"10px 14px",display:"flex",alignItems:"center",gap:10,border:"1px solid rgba(251,191,36,0.3)"}}>
           <span style={{fontSize:28}}>👑</span>
           <div style={{flex:1}}>
-            <div style={{fontSize:11,opacity:0.7,fontWeight:600}}>AKTUELLER CHAMPION</div>
+            <div style={{fontSize:11,opacity:0.7,fontWeight:600}}>{t("currentChampion")}</div>
             <div style={{fontSize:16,fontWeight:800,display:"flex",alignItems:"center",gap:6}}>
               <Avatar member={champ} size={22}/> {champ.name} <span style={{color:"#fbbf24"}}>({champ.wp} ⭐)</span>
             </div>
@@ -403,18 +353,18 @@ export default function App(){
       {/* Profile stats popup */}
       {showProfileStats && active && showProfileStats===active.id && <div style={{...S.card,margin:"8px 16px",background:"linear-gradient(135deg,rgba(251,191,36,0.15),rgba(99,102,241,0.15))",border:"1px solid rgba(251,191,36,0.3)"}}>
         <div style={{display:"flex",justifyContent:"space-around",textAlign:"center",color:"#fff"}}>
-          <div><div style={{fontSize:11,color:"#a5b4fc"}}>Woche</div><div style={{fontSize:20,fontWeight:800,color:"#fbbf24"}}>{weekPts(active.id)} ⭐</div></div>
-          <div><div style={{fontSize:11,color:"#a5b4fc"}}>Monat</div><div style={{fontSize:20,fontWeight:800,color:"#c4b5fd"}}>{monthPts(active.id)} ⭐</div></div>
-          <div><div style={{fontSize:11,color:"#a5b4fc"}}>Gesamt</div><div style={{fontSize:20,fontWeight:800,color:"#fff"}}>{pts(active.id)} ⭐</div></div>
-          <div><div style={{fontSize:11,color:"#a5b4fc"}}>Verfügbar</div><div style={{fontSize:20,fontWeight:800,color:"#22c55e"}}>{avail(active.id)} ⭐</div></div>
+          <div><div style={{fontSize:11,color:"#a5b4fc"}}>{t("week")}</div><div style={{fontSize:20,fontWeight:800,color:"#fbbf24"}}>{weekPts(active.id)} ⭐</div></div>
+          <div><div style={{fontSize:11,color:"#a5b4fc"}}>{t("month")}</div><div style={{fontSize:20,fontWeight:800,color:"#c4b5fd"}}>{monthPts(active.id)} ⭐</div></div>
+          <div><div style={{fontSize:11,color:"#a5b4fc"}}>{t("total")}</div><div style={{fontSize:20,fontWeight:800,color:"#fff"}}>{pts(active.id)} ⭐</div></div>
+          <div><div style={{fontSize:11,color:"#a5b4fc"}}>{t("available")}</div><div style={{fontSize:20,fontWeight:800,color:"#22c55e"}}>{avail(active.id)} ⭐</div></div>
         </div>
       </div>}
 
-      {!active&&<div style={{...S.card,textAlign:"center",padding:32}}><div style={{fontSize:48,marginBottom:8}}>👆</div><div style={{fontSize:16,color:"#a5b4fc"}}>Wähle oben dein Profil!</div></div>}
+      {!active&&<div style={{...S.card,textAlign:"center",padding:32}}><div style={{fontSize:48,marginBottom:8}}>👆</div><div style={{fontSize:16,color:"#a5b4fc"}}>{t("pickProfile")}</div></div>}
 
       {active&&<>
         <div style={{padding:"12px 16px 4px",display:"flex",gap:6,overflowX:"auto",flexWrap:"nowrap"}}>
-          {categoryNames.map(c=><button key={c} onClick={()=>setFilter(c)} style={S.tag(filter===c)}>{c==="Alle"?"Alle":`${getCatEmoji(c)} ${c}`}</button>)}
+          {categoryNames.map(c=><button key={c} onClick={()=>setFilter(c)} style={S.tag(filter===c)}>{c==="__all__"?t("all"):`${getCatEmoji(c)} ${c}`}</button>)}
         </div>
 
         <div style={{padding:"8px 16px"}}>
@@ -430,7 +380,7 @@ export default function App(){
                 <div style={{flex:1}}>
                   <div style={{fontWeight:700,color:myDone?"#6b7280":"#fff",display:"flex",alignItems:"center",gap:6}}>
                     {task.name}
-                    {task.recurring&&task.recurring!=="once"&&<span style={{fontSize:10,background:"rgba(139,92,246,0.3)",color:"#c4b5fd",borderRadius:6,padding:"1px 5px"}}>{task.recurring==="daily"?"tägl.":"wöch."}</span>}
+                    {task.recurring&&task.recurring!=="once"&&<span style={{fontSize:10,background:"rgba(139,92,246,0.3)",color:"#c4b5fd",borderRadius:6,padding:"1px 5px"}}>{task.recurring==="daily"?t("daily_short"):t("weekly_short")}</span>}
                   </div>
                   <div style={{fontSize:12,color:"#a5b4fc",display:"flex",gap:4,alignItems:"center",flexWrap:"wrap"}}>
                     {task.category}
@@ -448,13 +398,13 @@ export default function App(){
         </div>
 
         <div style={S.card}>
-          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>🏅 Abzeichen</div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>{t("badgesTitle")}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
             {BADGES.map(b=>{
               const earned=b.check(mc(active.id),data.tasks,data,active.id);
-              return <div key={b.id} title={b.desc} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 6px",borderRadius:12,background:earned?"rgba(251,191,36,0.2)":"rgba(148,163,184,0.15)",border:earned?"2px solid #fbbf24":"2px solid rgba(148,163,184,0.25)",opacity:earned?1:0.7,width:64}}>
+              return <div key={b.id} title={badgeTexts[lang][b.id][1]} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 6px",borderRadius:12,background:earned?"rgba(251,191,36,0.2)":"rgba(148,163,184,0.15)",border:earned?"2px solid #fbbf24":"2px solid rgba(148,163,184,0.25)",opacity:earned?1:0.7,width:64}}>
                 <span style={{fontSize:24}}>{b.emoji}</span>
-                <span style={{fontSize:9,fontWeight:700,textAlign:"center",color:earned?"#fbbf24":"#cbd5e1",lineHeight:1.2}}>{b.name}</span>
+                <span style={{fontSize:9,fontWeight:700,textAlign:"center",color:earned?"#fbbf24":"#cbd5e1",lineHeight:1.2}}>{badgeTexts[lang][b.id][0]}</span>
               </div>;
             })}
           </div>
@@ -468,18 +418,18 @@ export default function App(){
     const myRewards = active ? data.rewards.filter(r=>isVisibleTo(r,active.id)) : data.rewards;
     return <>
       <div style={S.hdr}>
-        <div style={{fontSize:24,fontWeight:800}}>🎁 Belohnungen</div>
-        {active&&<div style={{marginTop:8,fontSize:15}}><Avatar member={active} size={20}/> {active.name}: <b>{avail(active.id)} ⭐</b> verfügbar</div>}
+        <div style={{fontSize:24,fontWeight:800}}>{t("rewardsTitle")}</div>
+        {active&&<div style={{marginTop:8,fontSize:15}}><Avatar member={active} size={20}/> {active.name}: <b>{avail(active.id)} ⭐</b> {t("availableSuffix")}</div>}
       </div>
-      {!active?<div style={{...S.card,textAlign:"center",padding:32}}><div style={{fontSize:36,marginBottom:8}}>🏠</div><div style={{color:"#a5b4fc"}}>Wähle zuerst auf Home dein Profil!</div><button onClick={()=>setScreen("home")} style={{...S.btn(),marginTop:12}}>Zur Startseite</button></div>
+      {!active?<div style={{...S.card,textAlign:"center",padding:32}}><div style={{fontSize:36,marginBottom:8}}>🏠</div><div style={{color:"#a5b4fc"}}>{t("pickProfileFirst")}</div><button onClick={()=>setScreen("home")} style={{...S.btn(),marginTop:12}}>{t("toHome")}</button></div>
       :<div style={{padding:"8px 16px"}}>
         {myRewards.map(r=>{const ok=avail(active.id)>=r.pointsCost;return <button key={r.id} onClick={()=>ok&&redeemReward(r)} style={{display:"flex",alignItems:"center",gap:12,background:ok?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.03)",border:`2px solid ${ok?"#22c55e":"rgba(255,255,255,0.08)"}`,borderRadius:16,padding:"12px 14px",width:"100%",cursor:ok?"pointer":"default",fontFamily:"inherit",fontSize:15,textAlign:"left",marginBottom:8,color:"#fff",opacity:ok?1:0.5}}>
-          <span style={{fontSize:32}}>{r.emoji}</span><div style={{flex:1}}><div style={{fontWeight:700}}>{r.name}</div><div style={{fontSize:12,color:"#a5b4fc"}}>Kosten: {r.pointsCost} ⭐</div></div>
-          <div style={S.badge(ok?"#22c55e":"#6366f1")}>{ok?"Einlösen":"🔒"}</div>
+          <span style={{fontSize:32}}>{r.emoji}</span><div style={{flex:1}}><div style={{fontWeight:700}}>{r.name}</div><div style={{fontSize:12,color:"#a5b4fc"}}>{t("cost",{n:r.pointsCost})}</div></div>
+          <div style={S.badge(ok?"#22c55e":"#6366f1")}>{ok?t("redeem"):"🔒"}</div>
         </button>;})}
-        {myRewards.length===0&&<div style={{...S.card,textAlign:"center",color:"#a5b4fc"}}>Keine Belohnungen für dich eingerichtet.</div>}
+        {myRewards.length===0&&<div style={{...S.card,textAlign:"center",color:"#a5b4fc"}}>{t("noRewards")}</div>}
         {(data.redeemedRewards||[]).filter(r=>r.memberId===active.id).length>0&&<div style={{...S.card,margin:"12px 0"}}>
-          <div style={{fontWeight:700,fontSize:14,marginBottom:8,color:"#fff"}}>Eingelöste Belohnungen</div>
+          <div style={{fontWeight:700,fontSize:14,marginBottom:8,color:"#fff"}}>{t("redeemedRewards")}</div>
           {(data.redeemedRewards||[]).filter(r=>r.memberId===active.id).reverse().slice(0,10).map(r=>(
             <div key={r.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:13,color:"#c7d2fe"}}>
               <span>{r.rewardName}</span><span style={{color:"#6366f1"}}>{fmtDate(r.date)}</span>
@@ -513,17 +463,17 @@ export default function App(){
       const streak=getCurrentStreak(mmc); const mxStreak=getMaxStreak(mmc);
       return <>
         <div style={S.hdr}>
-          <button onClick={()=>setSelectedStat(null)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:10,padding:"6px 12px",fontSize:13,fontFamily:"inherit",cursor:"pointer",marginBottom:8}}>← Zurück</button>
+          <button onClick={()=>setSelectedStat(null)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:10,padding:"6px 12px",fontSize:13,fontFamily:"inherit",cursor:"pointer",marginBottom:8}}>{t("back")}</button>
           <div style={{fontSize:24,fontWeight:800,display:"flex",alignItems:"center",gap:8}}><Avatar member={m} size={30}/> {m.name}</div>
         </div>
         <div style={{display:"flex",gap:8,padding:"12px 16px 0",flexWrap:"wrap"}}>
-          {[{l:"Woche",v:weekPts(m.id)+"⭐"},{l:"Monat",v:monthPts(m.id)+"⭐"},{l:"Gesamt",v:pts(m.id)+"⭐"},
-            {l:"Verfügbar",v:avail(m.id)+"⭐"},{l:"Ø/Tag",v:avgDay(m.id)+"⭐"},{l:"Ø/Woche",v:avgWeek(m.id)+"⭐"},
-            {l:"Aufgaben",v:mmc.length},{l:"Streak",v:`🔥${streak}d`},{l:"Max Streak",v:`💎${mxStreak}d`},{l:"Aktive Tage",v:daysActive(m.id)},
+          {[{l:t("week"),v:weekPts(m.id)+"⭐"},{l:t("month"),v:monthPts(m.id)+"⭐"},{l:t("total"),v:pts(m.id)+"⭐"},
+            {l:t("available"),v:avail(m.id)+"⭐"},{l:t("perDay"),v:avgDay(m.id)+"⭐"},{l:t("perWeek"),v:avgWeek(m.id)+"⭐"},
+            {l:t("tasks"),v:mmc.length},{l:t("streak"),v:`🔥${streak}d`},{l:t("maxStreak"),v:`💎${mxStreak}d`},{l:t("activeDays"),v:daysActive(m.id)},
           ].map((s,i)=><div key={i} style={{...S.statBox,minWidth:"28%"}}><div style={{fontSize:11,color:"#a5b4fc",fontWeight:600}}>{s.l}</div><div style={{fontSize:17,fontWeight:800,color:m.color}}>{s.v}</div></div>)}
         </div>
         <div style={S.card}>
-          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>Aufgaben nach Kategorie</div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>{t("tasksByCategory")}</div>
           {cats.filter(c=>mmc.some(cc=>{const t=data.tasks.find(tt=>tt.id===cc.taskId);return t?.category===c.name;})).map(cat=>{
             const cnt=mmc.filter(c=>{const t=data.tasks.find(tt=>tt.id===c.taskId);return t?.category===cat.name;}).length;
             const tp=mmc.filter(c=>{const t=data.tasks.find(tt=>tt.id===c.taskId);return t?.category===cat.name;}).reduce((s,c)=>s+c.points,0);
@@ -533,7 +483,7 @@ export default function App(){
           })}
         </div>
         <div style={S.card}>
-          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>Letzte 7 Tage</div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>{t("last7")}</div>
           <div style={{display:"flex",gap:4,alignItems:"flex-end",height:90}}>
             {last7.map(d=>{
               const dp=mmc.filter(c=>isoDate(c.date)===d).reduce((s,c)=>s+c.points,0);
@@ -547,14 +497,14 @@ export default function App(){
           </div>
         </div>
         <div style={S.card}>
-          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>Letzte Aufgaben</div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>{t("lastTasks")}</div>
           {mmc.slice(-15).reverse().map(c=><div key={c.id} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:13,color:"#c7d2fe"}}><span>{c.taskName}</span><span style={{color:"#6366f1"}}>{fmtDate(c.date)} · +{c.points}</span></div>)}
         </div>
         <div style={S.card}>
-          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>Abzeichen</div>
+          <div style={{fontWeight:800,fontSize:16,marginBottom:10,color:"#fff"}}>{t("badges")}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
             {BADGES.map(b=>{const earned=b.check(mmc,data.tasks,data,m.id);return <div key={b.id} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"8px 6px",borderRadius:12,background:earned?"rgba(251,191,36,0.2)":"rgba(148,163,184,0.15)",border:earned?"2px solid #fbbf24":"2px solid rgba(148,163,184,0.25)",opacity:earned?1:0.7,width:64}}>
-              <span style={{fontSize:22}}>{b.emoji}</span><span style={{fontSize:9,fontWeight:700,textAlign:"center",color:earned?"#fbbf24":"#cbd5e1",lineHeight:1.2}}>{b.name}</span>
+              <span style={{fontSize:22}}>{b.emoji}</span><span style={{fontSize:9,fontWeight:700,textAlign:"center",color:earned?"#fbbf24":"#cbd5e1",lineHeight:1.2}}>{badgeTexts[lang][b.id][0]}</span>
             </div>;})}
           </div>
         </div>
@@ -562,25 +512,25 @@ export default function App(){
     }
 
     return <>
-      <div style={S.hdr}><div style={{fontSize:24,fontWeight:800}}>📊 Statistiken</div></div>
+      <div style={S.hdr}><div style={{fontSize:24,fontWeight:800}}>{t("statsTitle")}</div></div>
       <div style={{display:"flex",gap:8,padding:"12px 16px 0"}}>
-        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>Heute</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{data.completions.filter(c=>isoDate(c.date)===today()).length}</div></div>
-        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>Woche</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{weekC.length}</div></div>
-        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>Monat</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{monthC.length}</div></div>
-        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>Gesamt</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{data.completions.filter(c=>c.confirmed!==false).length}</div></div>
+        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>{t("today")}</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{data.completions.filter(c=>isoDate(c.date)===today()).length}</div></div>
+        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>{t("week")}</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{weekC.length}</div></div>
+        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>{t("month")}</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{monthC.length}</div></div>
+        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>{t("total")}</div><div style={{fontSize:22,fontWeight:800,color:"#fbbf24"}}>{data.completions.filter(c=>c.confirmed!==false).length}</div></div>
       </div>
 
       <div style={{display:"flex",gap:8,padding:"8px 16px 0"}}>
-        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>Ø Punkte/Tag</div><div style={{fontSize:18,fontWeight:800,color:"#c4b5fd"}}>{Math.round(data.members.reduce((s,m)=>s+avgDay(m.id),0)*10)/10}</div></div>
-        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>Ø Punkte/Woche</div><div style={{fontSize:18,fontWeight:800,color:"#c4b5fd"}}>{Math.round(data.members.reduce((s,m)=>s+avgWeek(m.id),0)*10)/10}</div></div>
+        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>{t("avgPtsDay")}</div><div style={{fontSize:18,fontWeight:800,color:"#c4b5fd"}}>{Math.round(data.members.reduce((s,m)=>s+avgDay(m.id),0)*10)/10}</div></div>
+        <div style={S.statBox}><div style={{fontSize:11,color:"#a5b4fc"}}>{t("avgPtsWeek")}</div><div style={{fontSize:18,fontWeight:800,color:"#c4b5fd"}}>{Math.round(data.members.reduce((s,m)=>s+avgWeek(m.id),0)*10)/10}</div></div>
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>🏆 Wochenrangliste</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("weekRanking")}</div>
         {sorted.map((m,i)=>{const p=weekPts(m.id);return <div key={m.id} onClick={()=>setSelectedStat(m.id)} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,cursor:"pointer",padding:4,borderRadius:12}}>
           <span style={{fontSize:18,width:26,textAlign:"center",color:"#fbbf24"}}>{i===0&&p>0?"🥇":i===1&&p>0?"🥈":i===2&&p>0?"🥉":`${i+1}.`}</span>
           <Avatar member={m} size={28}/>
-          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>{m.name} <span style={{fontSize:11,color:"#a5b4fc"}}>Ø {avgDay(m.id)}/Tag</span></div>
+          <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>{m.name} <span style={{fontSize:11,color:"#a5b4fc"}}>{t("perDayShort",{n:avgDay(m.id)})}</span></div>
             <div style={S.bar}><div style={S.barF(p/maxW*100,m.color)}/></div>
           </div>
           <span style={{...S.badge(m.color),minWidth:50}}>{p}⭐</span>
@@ -589,16 +539,16 @@ export default function App(){
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>📅 Monatsrangliste</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("monthRanking")}</div>
         {sortedM.map((m,i)=>{const p=monthPts(m.id);return <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
           <span style={{fontSize:16,width:24,textAlign:"center",color:"#a5b4fc"}}>{i+1}.</span><Avatar member={m} size={24}/>
-          <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:"#c7d2fe"}}>{m.name} <span style={{fontSize:11,color:"#6366f1"}}>Ø {avgWeek(m.id)}/Wo</span></div><div style={S.bar}><div style={S.barF(p/maxMo*100,m.color)}/></div></div>
+          <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:"#c7d2fe"}}>{m.name} <span style={{fontSize:11,color:"#6366f1"}}>{t("perWeekShort",{n:avgWeek(m.id)})}</span></div><div style={S.bar}><div style={S.barF(p/maxMo*100,m.color)}/></div></div>
           <span style={{fontWeight:700,fontSize:13,color:m.color}}>{p}⭐</span>
         </div>;})}
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>📈 Letzte 7 Tage</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("last7Title")}</div>
         <div style={{display:"flex",gap:4,alignItems:"flex-end",height:120}}>
           {last7.map(d=>{
             const segs=data.members.map(m=>({color:m.color,pts:data.completions.filter(c=>c.memberId===m.id&&isoDate(c.date)===d&&c.confirmed!==false).reduce((s,c)=>s+c.points,0)})).filter(s=>s.pts>0);
@@ -621,7 +571,7 @@ export default function App(){
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>📂 Kategorien (Woche)</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("categoriesWeek")}</div>
         {catStats.map(c=><div key={c.cat} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           <span>{c.emoji}</span><div style={{flex:1,fontSize:14}}>{c.cat}</div>
           <span style={{fontSize:12,color:"#a5b4fc"}}>{c.count}× · {c.pts}⭐</span>
@@ -629,7 +579,7 @@ export default function App(){
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>🌟 Gesamtrangliste</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("allTimeRanking")}</div>
         {sortedA.map((m,i)=>{const p=pts(m.id);return <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
           <span style={{fontSize:16,width:24,textAlign:"center",color:"#a5b4fc"}}>{i+1}.</span><Avatar member={m} size={24}/>
           <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:"#c7d2fe"}}>{m.name}</div><div style={S.bar}><div style={S.barF(p/maxA*100,m.color)}/></div></div>
@@ -638,18 +588,18 @@ export default function App(){
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>🕐 Letzte Aktivitäten</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("recentActivity")}</div>
         {data.completions.slice(-20).reverse().map(c=>{const m=data.members.find(mm=>mm.id===c.memberId);return <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:13,color:"#c7d2fe"}}>
           <span>{m?<Avatar member={m} size={18}/>:c.memberEmoji}</span><span style={{flex:1}}><b style={{color:"#fff"}}>{m?.name||c.memberName}</b> → {c.taskName}{c.needsConfirm&&!c.confirmed&&<span style={{color:"#fbbf24"}}> ⏳</span>}</span>
           <span style={{color:"#fbbf24",fontWeight:700}}>+{c.points}</span><span style={{color:"#6366f1",fontSize:11}}>{fmtDate(c.date)}</span>
         </div>;})}
-        {!data.completions.length&&<div style={{color:"#6366f1",textAlign:"center"}}>Noch keine Aktivitäten</div>}
+        {!data.completions.length&&<div style={{color:"#6366f1",textAlign:"center"}}>{t("noActivity")}</div>}
       </div>
 
       {(data.championHistory||[]).length>0&&<div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>🏆 Bisherige Champions</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("pastChampions")}</div>
         {(data.championHistory||[]).slice().reverse().slice(0,10).map((h,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",fontSize:13,color:"#c7d2fe"}}>
-          <span>🏆</span><span style={{flex:1}}><b style={{color:"#fff"}}>{h.emoji} {h.name}</b> – {h.pts}⭐</span><span style={{color:"#6366f1"}}>KW {h.week}</span>
+          <span>🏆</span><span style={{flex:1}}><b style={{color:"#fff"}}>{h.emoji} {h.name}</b> – {h.pts}⭐</span><span style={{color:"#6366f1"}}>{t("weekOf",{d:fmtDate(h.week)})}</span>
         </div>)}
       </div>}
     </>;
@@ -658,12 +608,13 @@ export default function App(){
   // ── ADMIN ──
   const renderAdmin=()=>{
     if(!adminMode) return <>
-      <div style={S.hdr}><div style={{fontSize:24,fontWeight:800}}>⚙️ Eltern-Bereich</div></div>
+      <div style={S.hdr}><div style={{fontSize:24,fontWeight:800}}>{t("parentArea")}</div></div>
       <div style={{...S.card,textAlign:"center"}}>
         <div style={{fontSize:48,marginBottom:12}}>🔒</div>
-        <div style={{marginBottom:16,color:"#a5b4fc"}}>PIN eingeben</div>
+        <div style={{marginBottom:16,color:"#a5b4fc"}}>{t("enterPin")}</div>
         <input type="password" inputMode="numeric" maxLength={6} value={pin} onChange={e=>setPin(e.target.value)} style={{...S.inp,textAlign:"center",fontSize:24,letterSpacing:8,marginBottom:12}} placeholder="••••"/>
-        <button onClick={()=>{if(pin===data.adminPin){setAdminMode(true);setPin("");}else{flash("Falsche PIN!");setPin("");}}} style={S.btn()}>Entsperren</button>
+        <button onClick={()=>{if(pin===data.adminPin){setAdminMode(true);setPin("");}else{flash(t("wrongPin"));setPin("");}}} style={S.btn()}>{t("unlock")}</button>
+        <div style={{display:"flex",gap:6,justifyContent:"center",marginTop:14}}>{Object.entries(LANGS).map(([k,v])=><button key={k} onClick={()=>setLang(k)} style={S.tag(lang===k)}>{v}</button>)}</div>
       </div>
     </>;
 
@@ -672,7 +623,7 @@ export default function App(){
     return <>
       <div style={S.hdr}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <div style={{fontSize:24,fontWeight:800}}>⚙️ Verwalten</div>
+          <div style={{fontSize:24,fontWeight:800}}>{t("manageTitle")}</div>
           <div style={{display:"flex",gap:8}}>
             {unreadNotifs.length>0&&<span style={{background:"#ef4444",color:"#fff",borderRadius:99,padding:"4px 10px",fontSize:12,fontWeight:700}}>🔔 {unreadNotifs.length}</span>}
             <button onClick={()=>setAdminMode(false)} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:10,padding:"6px 12px",fontSize:13,fontFamily:"inherit",cursor:"pointer"}}>🔒</button>
@@ -682,17 +633,17 @@ export default function App(){
 
       {/* Notifications */}
       {unreadNotifs.length>0&&<div style={{...S.card,border:"2px solid #ef4444"}}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔔 Benachrichtigungen</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>{t("notifications")}</div>
         {unreadNotifs.map(n=><div key={n.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe",fontSize:13}}>
-          <span style={{flex:1}}>{n.message}</span>
-          <button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(nn=>nn.id===n.id?{...nn,read:true}:nn)}))} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc"}}>✓ Gelesen</button>
+          <span style={{flex:1}}>{n.message||t("notifRedeemed",{emoji:n.emoji,name:n.name,x:n.rewardName,n:n.pointsCost})}</span>
+          <button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(nn=>nn.id===n.id?{...nn,read:true}:nn)}))} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer",fontSize:11,color:"#a5b4fc"}}>{t("markRead")}</button>
         </div>)}
-        <button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(n=>({...n,read:true}))}))} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>Alle als gelesen markieren</button>
+        <button onClick={()=>update(prev=>({...prev,notifications:(prev.notifications||[]).map(n=>({...n,read:true}))}))} style={{...S.btn("rgba(255,255,255,0.1)","#a5b4fc"),marginTop:8,fontSize:13,padding:"8px 16px"}}>{t("markAllRead")}</button>
       </div>}
 
       {/* Pending confirmations */}
       {pendingConfirm.length>0&&<div style={{...S.card,border:"2px solid #fbbf24"}}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>⏳ Bestätigungen ({pendingConfirm.length})</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>{t("confirmations",{n:pendingConfirm.length})}</div>
         {pendingConfirm.map(c=>{const m=data.members.find(mm=>mm.id===c.memberId);return <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           {m?<Avatar member={m} size={24}/>:<span>{c.memberEmoji}</span>}
           <div style={{flex:1}}><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>{m?.name||c.memberName}: {c.taskName}</div><div style={{fontSize:11,color:"#a5b4fc"}}>{fmtDate(c.date)} · +{c.points}⭐</div></div>
@@ -704,32 +655,32 @@ export default function App(){
       {/* Tasks */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📋 Aufgaben ({data.tasks.length})</div>
-          <button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:"Ordnung",recurring:"daily",assignedTo:[],photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>{t("tasksTitle",{n:data.tasks.length})}</div>
+          <button onClick={()=>setEditTask({id:"",name:"",emoji:"✅",points:10,category:cats[0]?.name||"",recurring:"daily",assignedTo:[],photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("new")}</button>
         </div>
-        {data.tasks.map(t=><div key={t.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
-          {t.photo?<img src={t.photo} style={{width:24,height:24,borderRadius:6,objectFit:"cover"}}/>:<span style={{fontSize:18}}>{t.emoji}</span>}
-          <div style={{flex:1,fontSize:13}}>{t.name} {t.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({t.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
-          <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{t.points}⭐</span>
-          <button onClick={()=>setEditTask({...t,assignedTo:t.assignedTo||[],photo:t.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
-          <button onClick={()=>{update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==t.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
+        {data.tasks.map(tk=><div key={tk.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
+          {tk.photo?<img src={tk.photo} style={{width:24,height:24,borderRadius:6,objectFit:"cover"}}/>:<span style={{fontSize:18}}>{tk.emoji}</span>}
+          <div style={{flex:1,fontSize:13}}>{tk.name} {tk.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({tk.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
+          <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{tk.points}⭐</span>
+          <button onClick={()=>setEditTask({...tk,assignedTo:tk.assignedTo||[],photo:tk.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
+          <button onClick={()=>{update(prev=>({...prev,tasks:prev.tasks.filter(tt=>tt.id!==tk.id)}));flash(t("deleted"));}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
         </div>)}
       </div>
 
       {/* Rewards with suggestions */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>🎁 Belohnungen</div>
+          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>{t("rewardsTitle")}</div>
           <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>setShowRewardSuggestions(!showRewardSuggestions)} style={{background:"rgba(255,255,255,0.1)",color:"#a5b4fc",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>💡 Vorschläge</button>
-            <button onClick={()=>setEditReward({id:"",name:"",emoji:"🎉",pointsCost:50,assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+            <button onClick={()=>setShowRewardSuggestions(!showRewardSuggestions)} style={{background:"rgba(255,255,255,0.1)",color:"#a5b4fc",border:"none",borderRadius:10,padding:"6px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("suggestions")}</button>
+            <button onClick={()=>setEditReward({id:"",name:"",emoji:"🎉",pointsCost:50,assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("new")}</button>
           </div>
         </div>
         {showRewardSuggestions&&<div style={{background:"rgba(251,191,36,0.1)",borderRadius:12,padding:12,marginBottom:12,border:"1px solid rgba(251,191,36,0.2)"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"#fbbf24",marginBottom:8}}>Vorschläge (antippen zum Hinzufügen):</div>
+          <div style={{fontSize:13,fontWeight:700,color:"#fbbf24",marginBottom:8}}>{t("suggestionsHint")}</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {REWARD_SUGGESTIONS.filter(s=>!data.rewards.some(r=>r.name===s.name)).map((s,i)=>(
-              <button key={i} onClick={()=>{update(prev=>({...prev,rewards:[...prev.rewards,{id:uid(),name:s.name,emoji:s.emoji,pointsCost:s.pointsCost,assignedTo:[]}]}));flash(`${s.emoji} ${s.name} hinzugefügt!`);}} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:10,padding:"4px 10px",fontSize:12,color:"#c7d2fe",cursor:"pointer",fontFamily:"inherit"}}>{s.emoji} {s.name}</button>
+            {rewardSuggestions(lang).filter(s=>!data.rewards.some(r=>r.name===s.name)).map((s,i)=>(
+              <button key={i} onClick={()=>{update(prev=>({...prev,rewards:[...prev.rewards,{id:uid(),name:s.name,emoji:s.emoji,pointsCost:s.pointsCost,assignedTo:[]}]}));flash(t("added",{x:`${s.emoji} ${s.name}`}));}} style={{background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:10,padding:"4px 10px",fontSize:12,color:"#c7d2fe",cursor:"pointer",fontFamily:"inherit"}}>{s.emoji} {s.name}</button>
             ))}
           </div>
         </div>}
@@ -738,18 +689,18 @@ export default function App(){
           <div style={{flex:1,fontSize:13}}>{r.name} {r.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({r.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <span style={{fontWeight:700,color:"#fbbf24",fontSize:12}}>{r.pointsCost}⭐</span>
           <button onClick={()=>setEditReward({...r,assignedTo:r.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
-          <button onClick={()=>{update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
+          <button onClick={()=>{update(prev=>({...prev,rewards:prev.rewards.filter(rr=>rr.id!==r.id)}));flash(t("deleted"));}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
         </div>)}
       </div>
 
       {/* Members */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>👨‍👩‍👧‍👦 Mitglieder</div>
-          <button onClick={()=>setEditMember({id:"",name:"",emoji:"😊",color:"#6366f1",isAdmin:false,photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>{t("membersTitle")}</div>
+          <button onClick={()=>setEditMember({id:"",name:"",emoji:"😊",color:"#6366f1",isAdmin:false,photo:null})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("new")}</button>
         </div>
         {data.members.map(m=><div key={m.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
-          <Avatar member={m} size={24}/><div style={{flex:1,fontSize:13}}>{m.name} {m.isAdmin&&<span style={{color:"#6366f1"}}>(Admin)</span>}</div>
+          <Avatar member={m} size={24}/><div style={{flex:1,fontSize:13}}>{m.name} {m.isAdmin&&<span style={{color:"#6366f1"}}>{t("admin")}</span>}</div>
           <button onClick={()=>setEditMember({...m,photo:m.photo||null})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
         </div>)}
       </div>
@@ -757,46 +708,48 @@ export default function App(){
       {/* Categories */}
       <div style={S.card}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>📂 Kategorien</div>
-          <button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>+ Neu</button>
+          <div style={{fontWeight:800,fontSize:17,color:"#fff"}}>{t("categoriesTitle")}</div>
+          <button onClick={()=>setEditCategory({id:"",name:"",emoji:"📋",assignedTo:[]})} style={{background:"#fbbf24",color:"#1e1b4b",border:"none",borderRadius:10,padding:"6px 14px",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("new")}</button>
         </div>
         {cats.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid rgba(255,255,255,0.08)",color:"#c7d2fe"}}>
           <span style={{fontSize:18}}>{c.emoji}</span>
           <div style={{flex:1,fontSize:13}}>{c.name} {c.assignedTo?.length>0&&<span style={{fontSize:10,color:"#fbbf24"}}>({c.assignedTo.map(id=>{const m=data.members.find(mm=>mm.id===id);return m?.name;}).filter(Boolean).join(", ")})</span>}</div>
           <button onClick={()=>setEditCategory({...c,assignedTo:c.assignedTo||[]})} style={{background:"rgba(255,255,255,0.1)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>✏️</button>
-          <button onClick={()=>{const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash("Gelöscht");}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
+          <button onClick={()=>{const nc=cats.filter(cc=>cc.id!==c.id);update(prev=>({...prev,customCategories:nc}));flash(t("deleted"));}} style={{background:"rgba(239,68,68,0.2)",border:"none",borderRadius:8,padding:"4px 8px",cursor:"pointer"}}>🗑️</button>
         </div>)}
       </div>
 
       {/* Settings */}
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🛡️ Einstellungen</div>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>{t("settingsTitle")}</div>
         <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer",padding:"8px 0",color:"#c7d2fe"}}>
           <input type="checkbox" checked={data.needsConfirmation} onChange={e=>update(prev=>({...prev,needsConfirmation:e.target.checked}))} style={{width:20,height:20,accentColor:"#fbbf24"}}/>
-          <div><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>Eltern-Bestätigung nötig</div><div style={{fontSize:12,color:"#a5b4fc"}}>Kinder-Aufgaben müssen bestätigt werden</div></div>
+          <div><div style={{fontWeight:700,fontSize:14,color:"#fff"}}>{t("needsConfirm")}</div><div style={{fontSize:12,color:"#a5b4fc"}}>{t("needsConfirmHint")}</div></div>
         </label>
+        <div style={{fontWeight:700,fontSize:14,color:"#fff",marginTop:10,marginBottom:6}}>{t("language")}</div>
+        <div style={{display:"flex",gap:6}}>{Object.entries(LANGS).map(([k,v])=><button key={k} onClick={()=>setLang(k)} style={S.tag(lang===k)}>{v}</button>)}</div>
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>🔐 PIN ändern</div>
-        <input type="text" inputMode="numeric" maxLength={6} placeholder="Neue PIN (mind. 4 Zeichen)" onChange={e=>{const v=e.target.value;if(v.length>=4){update(prev=>({...prev,adminPin:v}));flash("PIN geändert!");}}} style={S.inp}/>
+        <div style={{fontWeight:800,fontSize:17,marginBottom:10,color:"#fff"}}>{t("changePin")}</div>
+        <input type="text" inputMode="numeric" maxLength={6} placeholder={t("newPinPh")} onChange={e=>{const v=e.target.value;if(v.length>=4){update(prev=>({...prev,adminPin:v}));flash(t("pinChanged"));}}} style={S.inp}/>
       </div>
 
       <div style={S.card}>
-        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>🗑️ Daten-Verwaltung</div>
-        <button onClick={()=>setShowPointsManager(true)} style={{...S.btn("#4338ca","#fff"),marginBottom:8}}>⭐ Punkte verwalten / korrigieren</button>
-        <button onClick={()=>{if(confirm("Alle Wochenpunkte der Kinder zurücksetzen? Gesamtpunkte, Aufgaben, Belohnungen und Profile bleiben erhalten."))
+        <div style={{fontWeight:800,fontSize:17,marginBottom:12,color:"#fff"}}>{t("dataTitle")}</div>
+        <button onClick={()=>setShowPointsManager(true)} style={{...S.btn("#4338ca","#fff"),marginBottom:8}}>{t("managePoints")}</button>
+        <button onClick={()=>{if(confirm(t("resetWeekConfirm")))
           update(prev=>{
             const ws=weekStart();
             return {...prev, completions: prev.completions.filter(c=>new Date(c.date)<ws)};
           });
-          flash("Wochenpunkte zurückgesetzt!");}} style={{...S.btn("#f97316","#fff"),marginBottom:8}}>🔄 Nur Wochenpunkte zurücksetzen</button>
-        <button onClick={()=>{if(confirm("ALLE verdienten Punkte aller Kinder zurücksetzen? Aufgaben, Belohnungen, Profile und Kategorien bleiben erhalten."))
+          flash(t("resetWeekDone"));}} style={{...S.btn("#f97316","#fff"),marginBottom:8}}>{t("resetWeek")}</button>
+        <button onClick={()=>{if(confirm(t("resetAllPtsConfirm")))
           update(prev=>({...prev, completions:[], redeemedRewards:[], championHistory:[]}));
-          flash("Alle Punkte zurückgesetzt!");}} style={{...S.btn("#dc2626","#fff"),marginBottom:8}}>⚠️ Alle Punkte zurücksetzen</button>
-        <button onClick={()=>{if(confirm("ALLE Daten komplett zurücksetzen? Aufgaben, Belohnungen, Mitglieder, Profile – alles wird gelöscht und auf Standard gesetzt!"))
-          {update(()=>({...DEFAULT_DATA}));setActive(null);flash("Alles zurückgesetzt!");}
-        }} style={S.btn("#991b1b","#fff")}>💥 Komplett-Reset (alles löschen)</button>
+          flash(t("resetAllPtsDone"));}} style={{...S.btn("#dc2626","#fff"),marginBottom:8}}>{t("resetAllPts")}</button>
+        <button onClick={()=>{if(confirm(t("resetAllConfirm")))
+          {update(()=>defaultData(lang));setActive(null);flash(t("resetAllDone"));}
+        }} style={S.btn("#991b1b","#fff")}>{t("resetAll")}</button>
       </div>
     </>;
   };
@@ -812,35 +765,35 @@ export default function App(){
     };
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditTask(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neue Aufgabe":"Aufgabe bearbeiten"}</div>
-        <label style={S.label}>Name</label>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?t("newTask"):t("editTask")}</div>
+        <label style={S.label}>{t("name")}</label>
         <input value={editTask.name} onChange={e=>setEditTask({...editTask,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
-        <label style={S.label}>Bild / Icon</label>
+        <label style={S.label}>{t("imageIcon")}</label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
           {TASK_CLIPARTS.map(e=><button key={e} onClick={()=>setEditTask({...editTask,emoji:e,photo:null})} style={{fontSize:22,padding:4,borderRadius:10,border:editTask.emoji===e&&!editTask.photo?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{e}</button>)}
         </div>
-        <PhotoUpload currentPhoto={editTask.photo} onPhoto={(p)=>setEditTask({...editTask,photo:p})} label="Eigenes Bild hochladen"/>
-        {editTask.photo&&<button onClick={()=>setEditTask({...editTask,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Bild entfernen</button>}
-        <label style={{...S.label,marginTop:12}}>Punkte</label>
+        <PhotoUpload currentPhoto={editTask.photo} onPhoto={(p)=>setEditTask({...editTask,photo:p})} label={t("uploadOwnImage")} t={t}/>
+        {editTask.photo&&<button onClick={()=>setEditTask({...editTask,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>{t("removeImage")}</button>}
+        <label style={{...S.label,marginTop:12}}>{t("points")}</label>
         <input type="number" value={editTask.points} onChange={e=>setEditTask({...editTask,points:parseInt(e.target.value)||0})} style={{...S.inp,marginBottom:12}}/>
-        <label style={S.label}>Kategorie</label>
+        <label style={S.label}>{t("category")}</label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
           {cats.map(c=><button key={c.id} onClick={()=>setEditTask({...editTask,category:c.name})} style={S.mbtn(editTask.category===c.name)}>{c.emoji} {c.name}</button>)}
         </div>
-        <label style={S.label}>Wiederholung</label>
+        <label style={S.label}>{t("repeat")}</label>
         <div style={{display:"flex",gap:6,marginBottom:12}}>
-          {[["once","Einmalig"],["daily","Täglich"],["weekly","Wöchentlich"]].map(([v,l])=>
+          {[["once",t("once")],["daily",t("daily")],["weekly",t("weekly")]].map(([v,l])=>
             <button key={v} onClick={()=>setEditTask({...editTask,recurring:v})} style={S.mbtn(editTask.recurring===v)}>{l}</button>
           )}
         </div>
-        <label style={S.label}>Zugeordnet an <span style={{fontWeight:500,color:"#94a3b8"}}>(mehrere möglich)</span></label>
-        <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>Wähle "Alle" oder tippe mehrere Kinder an, um die Aufgabe individuell zuzuordnen.</div>
+        <label style={S.label}>{t("assignedTo")} <span style={{fontWeight:500,color:"#94a3b8"}}>{t("multiple")}</span></label>
+        <div style={{fontSize:11,color:"#94a3b8",marginBottom:6}}>{t("assignHint")}</div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-          <button onClick={()=>setEditTask({...editTask,assignedTo:[]})} style={S.mbtn((editTask.assignedTo||[]).length===0)}>👥 Alle</button>
+          <button onClick={()=>setEditTask({...editTask,assignedTo:[]})} style={S.mbtn((editTask.assignedTo||[]).length===0)}>👥 {t("all")}</button>
           {kids.map(m=><button key={m.id} onClick={()=>toggleAssign(m.id)} style={S.mbtn((editTask.assignedTo||[]).includes(m.id))}>{(editTask.assignedTo||[]).includes(m.id)?"✓ ":""}{m.emoji} {m.name}</button>)}
         </div>
-        <button onClick={()=>{if(!editTask.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,tasks:[...prev.tasks,{...editTask,id:uid()}]};return{...prev,tasks:prev.tasks.map(t=>t.id===editTask.id?editTask:t)};});setEditTask(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
-        <button onClick={()=>setEditTask(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
+        <button onClick={()=>{if(!editTask.name.trim()){flash(t("nameMissing"));return;}update(prev=>{if(isNew)return{...prev,tasks:[...prev.tasks,{...editTask,id:uid()}]};return{...prev,tasks:prev.tasks.map(t=>t.id===editTask.id?editTask:t)};});setEditTask(null);flash(isNew?t("created"):t("saved"));}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>{t("save")}</button>
+        <button onClick={()=>setEditTask(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>{t("cancel")}</button>
       </div>
     </div>;
   };
@@ -853,25 +806,25 @@ export default function App(){
     const colors=["#2563eb","#dc2626","#16a34a","#eab308","#f97316","#8b5cf6","#ec4899","#06b6d4","#84cc16"];
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditMember(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neues Mitglied":"Bearbeiten"}</div>
-        <label style={S.label}>Name</label>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?t("newMember"):t("edit")}</div>
+        <label style={S.label}>{t("name")}</label>
         <input value={editMember.name} onChange={e=>setEditMember({...editMember,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
-        <label style={{...S.label,marginBottom:8}}>Profilbild</label>
+        <label style={{...S.label,marginBottom:8}}>{t("profilePhoto")}</label>
         <div style={{marginBottom:12}}>
-          <PhotoUpload currentPhoto={editMember.photo} onPhoto={(p)=>setEditMember({...editMember,photo:p})}/>
-          {editMember.photo&&<button onClick={()=>setEditMember({...editMember,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>Foto entfernen</button>}
+          <PhotoUpload currentPhoto={editMember.photo} onPhoto={(p)=>setEditMember({...editMember,photo:p})} t={t}/>
+          {editMember.photo&&<button onClick={()=>setEditMember({...editMember,photo:null})} style={{background:"none",border:"none",color:"#ef4444",fontSize:12,cursor:"pointer",marginTop:4,fontFamily:"inherit"}}>{t("removePhoto")}</button>}
         </div>
-        <label style={{...S.label,marginBottom:8}}>Emoji (Fallback)</label>
+        <label style={{...S.label,marginBottom:8}}>{t("emojiFallback")}</label>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
           {emojis.map(em=><button key={em} onClick={()=>setEditMember({...editMember,emoji:em})} style={{fontSize:26,padding:5,borderRadius:12,border:editMember.emoji===em?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{em}</button>)}
         </div>
-        <label style={{...S.label,marginBottom:8}}>Farbe</label>
+        <label style={{...S.label,marginBottom:8}}>{t("color")}</label>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
           {colors.map(c=><button key={c} onClick={()=>setEditMember({...editMember,color:c})} style={{width:34,height:34,borderRadius:99,background:c,border:editMember.color===c?"3px solid #1e293b":"2px solid transparent",cursor:"pointer"}}/>)}
         </div>
-        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:14,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editMember.isAdmin} onChange={e=>setEditMember({...editMember,isAdmin:e.target.checked})} style={{width:18,height:18,accentColor:"#4338ca"}}/> Admin (Eltern)</label>
-        <button onClick={()=>{if(!editMember.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,members:[...prev.members,{...editMember,id:uid()}]};return{...prev,members:prev.members.map(m=>m.id===editMember.id?editMember:m)};});setEditMember(null);flash(isNew?"Hinzugefügt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
-        <button onClick={()=>setEditMember(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
+        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:14,marginBottom:16,cursor:"pointer"}}><input type="checkbox" checked={editMember.isAdmin} onChange={e=>setEditMember({...editMember,isAdmin:e.target.checked})} style={{width:18,height:18,accentColor:"#4338ca"}}/> {t("adminParents")}</label>
+        <button onClick={()=>{if(!editMember.name.trim()){flash(t("nameMissing"));return;}update(prev=>{if(isNew)return{...prev,members:[...prev.members,{...editMember,id:uid()}]};return{...prev,members:prev.members.map(m=>m.id===editMember.id?editMember:m)};});setEditMember(null);flash(isNew?t("memberAdded"):t("saved"));}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>{t("save")}</button>
+        <button onClick={()=>setEditMember(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>{t("cancel")}</button>
       </div>
     </div>;
   };
@@ -887,20 +840,20 @@ export default function App(){
     };
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditReward(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neue Belohnung":"Bearbeiten"}</div>
-        <label style={S.label}>Name</label>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?t("newReward"):t("edit")}</div>
+        <label style={S.label}>{t("name")}</label>
         <input value={editReward.name} onChange={e=>setEditReward({...editReward,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
-        <label style={S.label}>Emoji</label>
+        <label style={S.label}>{t("emoji")}</label>
         <input value={editReward.emoji} onChange={e=>setEditReward({...editReward,emoji:e.target.value})} style={{...S.inp,marginBottom:12}}/>
-        <label style={S.label}>Punktekosten</label>
+        <label style={S.label}>{t("pointsCost")}</label>
         <input type="number" value={editReward.pointsCost} onChange={e=>setEditReward({...editReward,pointsCost:parseInt(e.target.value)||0})} style={{...S.inp,marginBottom:12}}/>
-        <label style={S.label}>Zugeordnet an <span style={{fontWeight:500,color:"#94a3b8"}}>(mehrere möglich)</span></label>
+        <label style={S.label}>{t("assignedTo")} <span style={{fontWeight:500,color:"#94a3b8"}}>{t("multiple")}</span></label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-          <button onClick={()=>setEditReward({...editReward,assignedTo:[]})} style={S.mbtn((editReward.assignedTo||[]).length===0)}>👥 Alle Kinder</button>
+          <button onClick={()=>setEditReward({...editReward,assignedTo:[]})} style={S.mbtn((editReward.assignedTo||[]).length===0)}>👥 {t("allKids")}</button>
           {kids.map(m=><button key={m.id} onClick={()=>toggleAssign(m.id)} style={S.mbtn((editReward.assignedTo||[]).includes(m.id))}>{(editReward.assignedTo||[]).includes(m.id)?"✓ ":""}{m.emoji} {m.name}</button>)}
         </div>
-        <button onClick={()=>{if(!editReward.name.trim()){flash("Name fehlt!");return;}update(prev=>{if(isNew)return{...prev,rewards:[...prev.rewards,{...editReward,id:uid()}]};return{...prev,rewards:prev.rewards.map(r=>r.id===editReward.id?editReward:r)};});setEditReward(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
-        <button onClick={()=>setEditReward(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
+        <button onClick={()=>{if(!editReward.name.trim()){flash(t("nameMissing"));return;}update(prev=>{if(isNew)return{...prev,rewards:[...prev.rewards,{...editReward,id:uid()}]};return{...prev,rewards:prev.rewards.map(r=>r.id===editReward.id?editReward:r)};});setEditReward(null);flash(isNew?t("created"):t("saved"));}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>{t("save")}</button>
+        <button onClick={()=>setEditReward(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>{t("cancel")}</button>
       </div>
     </div>;
   };
@@ -917,20 +870,20 @@ export default function App(){
     };
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)setEditCategory(null);}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
-        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?"Neue Kategorie":"Kategorie bearbeiten"}</div>
-        <label style={S.label}>Name</label>
+        <div style={{fontWeight:800,fontSize:20,marginBottom:16}}>{isNew?t("newCategory"):t("editCategory")}</div>
+        <label style={S.label}>{t("name")}</label>
         <input value={editCategory.name} onChange={e=>setEditCategory({...editCategory,name:e.target.value})} style={{...S.inp,marginBottom:12}}/>
-        <label style={S.label}>Emoji</label>
+        <label style={S.label}>{t("emoji")}</label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
           {catEmojis.map(em=><button key={em} onClick={()=>setEditCategory({...editCategory,emoji:em})} style={{fontSize:22,padding:4,borderRadius:10,border:editCategory.emoji===em?"3px solid #4338ca":"2px solid #e2e8f0",background:"none",cursor:"pointer"}}>{em}</button>)}
         </div>
-        <label style={S.label}>Sichtbar für <span style={{fontWeight:500,color:"#94a3b8"}}>(mehrere möglich)</span></label>
+        <label style={S.label}>{t("visibleFor")} <span style={{fontWeight:500,color:"#94a3b8"}}>{t("multiple")}</span></label>
         <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
-          <button onClick={()=>setEditCategory({...editCategory,assignedTo:[]})} style={S.mbtn((editCategory.assignedTo||[]).length===0)}>👥 Alle</button>
+          <button onClick={()=>setEditCategory({...editCategory,assignedTo:[]})} style={S.mbtn((editCategory.assignedTo||[]).length===0)}>👥 {t("all")}</button>
           {kids.map(m=><button key={m.id} onClick={()=>toggleAssign(m.id)} style={S.mbtn((editCategory.assignedTo||[]).includes(m.id))}>{(editCategory.assignedTo||[]).includes(m.id)?"✓ ":""}{m.emoji} {m.name}</button>)}
         </div>
-        <button onClick={()=>{if(!editCategory.name.trim()){flash("Name fehlt!");return;}const cur=data.customCategories||[...DEFAULT_CATEGORIES];if(isNew){const nc=[...cur,{...editCategory,id:uid()}];update(prev=>({...prev,customCategories:nc}));}else{const nc=cur.map(c=>c.id===editCategory.id?editCategory:c);update(prev=>({...prev,customCategories:nc}));}setEditCategory(null);flash(isNew?"Erstellt!":"Gespeichert!");}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>Speichern</button>
-        <button onClick={()=>setEditCategory(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Abbrechen</button>
+        <button onClick={()=>{if(!editCategory.name.trim()){flash(t("nameMissing"));return;}const cur=data.customCategories||defaultCategories(lang);if(isNew){const nc=[...cur,{...editCategory,id:uid()}];update(prev=>({...prev,customCategories:nc}));}else{const nc=cur.map(c=>c.id===editCategory.id?editCategory:c);update(prev=>({...prev,customCategories:nc}));}setEditCategory(null);flash(isNew?t("created"):t("saved"));}} style={{...S.btn("#4338ca","#fff"),width:"100%"}}>{t("save")}</button>
+        <button onClick={()=>setEditCategory(null)} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>{t("cancel")}</button>
       </div>
     </div>;
   };
@@ -942,17 +895,17 @@ export default function App(){
     if(!pointsManagerMember){
       return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget){setShowPointsManager(false);}}}>
         <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
-          <div style={{fontWeight:800,fontSize:20,marginBottom:8}}>⭐ Punkte verwalten</div>
-          <div style={{fontSize:13,color:"#64748b",marginBottom:16}}>Wähle ein Mitglied, um dessen Punkte einzeln zu korrigieren oder zurückzunehmen.</div>
+          <div style={{fontWeight:800,fontSize:20,marginBottom:8}}>{t("managePointsTitle")}</div>
+          <div style={{fontSize:13,color:"#64748b",marginBottom:16}}>{t("managePointsHint")}</div>
           {data.members.map(m=><button key={m.id} onClick={()=>setPointsManagerMember(m.id)} style={{display:"flex",alignItems:"center",gap:12,background:"#f1f5f9",border:"2px solid #e2e8f0",borderRadius:14,padding:"10px 14px",width:"100%",cursor:"pointer",fontFamily:"inherit",fontSize:14,textAlign:"left",marginBottom:8,color:"#1e293b"}}>
             <Avatar member={m} size={36}/>
             <div style={{flex:1}}>
               <div style={{fontWeight:700}}>{m.name}</div>
-              <div style={{fontSize:12,color:"#64748b"}}>Gesamt: {pts(m.id)} ⭐ · Woche: {weekPts(m.id)} ⭐ · Verfügbar: {avail(m.id)} ⭐</div>
+              <div style={{fontSize:12,color:"#64748b"}}>{t("pointsSummary",{t:pts(m.id),w:weekPts(m.id),a:avail(m.id)})}</div>
             </div>
             <span style={{color:"#64748b"}}>›</span>
           </button>)}
-          <button onClick={()=>{setShowPointsManager(false);setPointsManagerMember(null);}} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>Schließen</button>
+          <button onClick={()=>{setShowPointsManager(false);setPointsManagerMember(null);}} style={{...S.btn("#94a3b8","#fff"),marginTop:8,width:"100%"}}>{t("close")}</button>
         </div>
       </div>;
     }
@@ -964,39 +917,39 @@ export default function App(){
     return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget){setPointsManagerMember(null);}}}>
       <div style={S.modalBox} onClick={e=>e.stopPropagation()}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-          <button onClick={()=>setPointsManagerMember(null)} style={{background:"#f1f5f9",border:"none",borderRadius:10,padding:"6px 12px",fontSize:13,cursor:"pointer",fontFamily:"inherit",color:"#64748b"}}>← Zurück</button>
+          <button onClick={()=>setPointsManagerMember(null)} style={{background:"#f1f5f9",border:"none",borderRadius:10,padding:"6px 12px",fontSize:13,cursor:"pointer",fontFamily:"inherit",color:"#64748b"}}>{t("back")}</button>
           <Avatar member={m} size={30}/>
           <div style={{fontWeight:800,fontSize:18}}>{m.name}</div>
         </div>
         <div style={{fontSize:13,color:"#64748b",marginBottom:8,padding:"8px 12px",background:"#f1f5f9",borderRadius:10}}>
-          <b>Gesamt:</b> {pts(m.id)} ⭐ · <b>Woche:</b> {weekPts(m.id)} ⭐ · <b>Verfügbar:</b> {avail(m.id)} ⭐
+          <b>{t("total")}:</b> {pts(m.id)} ⭐ · <b>{t("week")}:</b> {weekPts(m.id)} ⭐ · <b>{t("available")}:</b> {avail(m.id)} ⭐
         </div>
 
-        <div style={{fontWeight:700,fontSize:14,marginTop:16,marginBottom:8,color:"#1e293b"}}>📋 Erledigte Aufgaben ({memberComps.length})</div>
+        <div style={{fontWeight:700,fontSize:14,marginTop:16,marginBottom:8,color:"#1e293b"}}>{t("completedTasks",{n:memberComps.length})}</div>
         <div style={{maxHeight:200,overflowY:"auto",marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10}}>
-          {memberComps.length===0&&<div style={{padding:12,color:"#94a3b8",fontSize:13,textAlign:"center"}}>Keine erledigten Aufgaben</div>}
+          {memberComps.length===0&&<div style={{padding:12,color:"#94a3b8",fontSize:13,textAlign:"center"}}>{t("noCompletedTasks")}</div>}
           {memberComps.map(c=><div key={c.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderBottom:"1px solid #f1f5f9",fontSize:13}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:600,color:"#1e293b"}}>{c.taskName}</div>
-              <div style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(c.date)} · +{c.points}⭐ {c.needsConfirm&&!c.confirmed&&"· ⏳ unbestätigt"}</div>
+              <div style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(c.date)} · +{c.points}⭐ {c.needsConfirm&&!c.confirmed&&t("unconfirmed")}</div>
             </div>
-            <button onClick={()=>{if(confirm(`"${c.taskName}" (+${c.points}⭐) zurücknehmen?`)){update(prev=>({...prev,completions:prev.completions.filter(cc=>cc.id!==c.id)}));flash("Zurückgenommen!");}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑️ Zurücknehmen</button>
+            <button onClick={()=>{if(confirm(t("revokeConfirm",{x:c.taskName,n:c.points}))){update(prev=>({...prev,completions:prev.completions.filter(cc=>cc.id!==c.id)}));flash(t("revoked"));}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("revoke")}</button>
           </div>)}
         </div>
 
-        <div style={{fontWeight:700,fontSize:14,marginTop:16,marginBottom:8,color:"#1e293b"}}>🎁 Eingelöste Belohnungen ({memberRedeemed.length})</div>
+        <div style={{fontWeight:700,fontSize:14,marginTop:16,marginBottom:8,color:"#1e293b"}}>{t("redeemedTitle",{n:memberRedeemed.length})}</div>
         <div style={{maxHeight:180,overflowY:"auto",marginBottom:12,border:"1px solid #e2e8f0",borderRadius:10}}>
-          {memberRedeemed.length===0&&<div style={{padding:12,color:"#94a3b8",fontSize:13,textAlign:"center"}}>Keine Belohnungen eingelöst</div>}
+          {memberRedeemed.length===0&&<div style={{padding:12,color:"#94a3b8",fontSize:13,textAlign:"center"}}>{t("noRedeemed")}</div>}
           {memberRedeemed.map(r=><div key={r.id} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderBottom:"1px solid #f1f5f9",fontSize:13}}>
             <div style={{flex:1}}>
               <div style={{fontWeight:600,color:"#1e293b"}}>{r.rewardName}</div>
               <div style={{fontSize:11,color:"#94a3b8"}}>{fmtDate(r.date)} · -{r.pointsCost}⭐</div>
             </div>
-            <button onClick={()=>{if(confirm(`Einlösung "${r.rewardName}" (-${r.pointsCost}⭐) zurücknehmen? Die Punkte werden wieder gutgeschrieben.`)){update(prev=>({...prev,redeemedRewards:(prev.redeemedRewards||[]).filter(rr=>rr.id!==r.id)}));flash("Einlösung zurückgenommen!");}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>🗑️ Zurücknehmen</button>
+            <button onClick={()=>{if(confirm(t("revokeRedeemConfirm",{x:r.rewardName,n:r.pointsCost}))){update(prev=>({...prev,redeemedRewards:(prev.redeemedRewards||[]).filter(rr=>rr.id!==r.id)}));flash(t("redeemRevoked"));}}} style={{background:"#fef2f2",color:"#ef4444",border:"none",borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{t("revoke")}</button>
           </div>)}
         </div>
 
-        <button onClick={()=>setPointsManagerMember(null)} style={{...S.btn("#94a3b8","#fff"),width:"100%"}}>Zurück</button>
+        <button onClick={()=>setPointsManagerMember(null)} style={{...S.btn("#94a3b8","#fff"),width:"100%"}}>{t("backPlain")}</button>
       </div>
     </div>;
   };
@@ -1007,8 +960,8 @@ export default function App(){
     return <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setShowCeremony(false)}>
       <div style={{background:"linear-gradient(135deg,#1e1b4b,#312e81)",borderRadius:28,padding:32,maxWidth:360,width:"100%",textAlign:"center",color:"#fff",boxShadow:"0 20px 60px rgba(0,0,0,0.5)",border:"2px solid rgba(251,191,36,0.3)"}} onClick={e=>e.stopPropagation()}>
         <div style={{fontSize:64,marginBottom:8}}>🏆</div>
-        <div style={{fontSize:28,fontWeight:800,color:"#fbbf24",marginBottom:4}}>Wochen Champion!</div>
-        <div style={{fontSize:14,color:"#a5b4fc",marginBottom:20}}>KW {ceremonyData.weekOf}</div>
+        <div style={{fontSize:28,fontWeight:800,color:"#fbbf24",marginBottom:4}}>{t("ceremonyTitle")}</div>
+        <div style={{fontSize:14,color:"#a5b4fc",marginBottom:20}}>{t("weekOf",{d:fmtDate(ceremonyData.weekOf)})}</div>
         <div style={{fontSize:48,marginBottom:8}}>{ceremonyData.champion.photo?<img src={ceremonyData.champion.photo} style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",border:"4px solid #fbbf24"}}/>:ceremonyData.champion.emoji}</div>
         <div style={{fontSize:24,fontWeight:800,marginBottom:4}}>{ceremonyData.champion.name}</div>
         <div style={{fontSize:20,color:"#fbbf24",fontWeight:700,marginBottom:20}}>{ceremonyData.champion.pts} ⭐</div>
@@ -1017,7 +970,7 @@ export default function App(){
             <span>{i===0?"🥈":i===1?"🥉":`${i+2}.`}</span><span>{s.emoji} {s.name}</span><span style={{color:"#6366f1"}}>{s.pts}⭐</span>
           </div>)}
         </div>
-        <button onClick={()=>setShowCeremony(false)} style={{...S.btn(),width:"auto",padding:"10px 32px"}}>🎉 Super!</button>
+        <button onClick={()=>setShowCeremony(false)} style={{...S.btn(),width:"auto",padding:"10px 32px"}}>{t("great")}</button>
       </div>
     </div>;
   };
