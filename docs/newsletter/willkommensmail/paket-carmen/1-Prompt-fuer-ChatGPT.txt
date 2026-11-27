@@ -1,0 +1,36 @@
+Diesen ganzen Text in ein neues ChatGPT-Chatfenster kopieren und zusammen mit der Datei „willkommensmail-entwurf-1.html“ abschicken.
+----------------------------------------------------------------------
+
+Du hilfst mir, den Entwurf einer Willkommensmail für die Familien-App „Wochen Champion“ zu überarbeiten. Die HTML-Datei hängt an.
+
+SO ARBEITEN WIR
+1. Öffne die angehängte HTML-Datei vollständig und unverändert in Canvas, damit ich die Mail über die Vorschau ansehen kann.
+2. Ich sage dir dann, was ich ändern möchte. Du änderst den Code direkt im Canvas, sodass ich die Änderung sofort in der Vorschau sehe.
+3. Nach jeder Änderung schreibst du im Chat in 1–3 Stichpunkten, was du geändert hast.
+4. Wenn ich „fertig“ schreibe, gibst du die vollständige HTML-Datei zum Herunterladen aus, ungekürzt, ohne Auslassungen wie „…“ oder „Rest unverändert“. Dateiname: willkommensmail-carmen.html
+
+WORUM ES GEHT
+- Die Mail geht an Eltern, die ihre Newsletter-Anmeldung bereits bestätigt haben. Sie ist keine Bestätigungsmail.
+- Absender ist Marcus, der die App entwickelt hat. Ton: warm, freundlich, klar, ohne Werbedruck.
+- Betreffvorschlag (steht nicht in der Datei, gern im Chat verbessern): „Willkommen bei Wochen Champion – so gelingt der Start“
+- Die Vorschauzeile steht ganz oben im Code in einem versteckten <div>. Wenn sich der Inhalt ändert, passe sie mit an.
+
+INHALTLICHE REGELN
+- Du-Ansprache. Die Anrede bleibt „Hallo und herzlich willkommen!“ (kein Name, keine Variable für den Namen).
+- Keine Preise, keine Gratisphase und kein Enddatum, keine App-Store-Links.
+- Keine Funktionen versprechen, die nicht sicher vorhanden sind, und keine garantierten pädagogischen Wirkungen.
+- Beispiele alltagstauglich, altersgerecht und geschlechtsneutral. Belohnungen eher gemeinsame Zeit, Mitbestimmung und kleine Erlebnisse, keine teuren Anschaffungen.
+- Kein Druck, keine Beschämung von Kindern.
+- Der Schluss bleibt: „Viel Freude beim gemeinsamen Ausprobieren!“ und „Marcus von Wochen Champion“.
+- Kontaktadresse bleibt info@wochenchampion.de.
+
+TECHNISCHE REGELN (sehr wichtig, damit die Mail in Mailprogrammen funktioniert)
+- Das Layout bleibt ein Tabellenlayout mit Inline-Styles (style="…") direkt an den Elementen. Nicht auf <div>-Layouts, Flexbox, Grid oder externe CSS-Dateien umbauen.
+- Maximale Breite bleibt 600 px. Die Farben bleiben (Dunkelviolett #1e1b4b, Gold #fbbf24, Weiß, Indigo #4338ca), außer ich wünsche ausdrücklich etwas anderes.
+- Kein JavaScript, keine externen Schriftarten, keine weiteren Bilder, kein Tracking.
+- Alles in doppelten geschweiften Klammern ist ein Platzhalter und bleibt Zeichen für Zeichen erhalten, z. B. {{UNSUBSCRIBE_URL}}, {{IMPRESSUM_URL}}, {{DATENSCHUTZ_URL}}, {{ABSENDER_NAME}}, {{ABSENDER_ANSCHRIFT}}. In der Vorschau sind diese Stellen absichtlich noch leer bzw. als Text zu sehen.
+- Die Bildadresse des Logos (beginnt mit https://raw.githubusercontent.com/…) nicht ändern.
+- Die Kommentare im Code (<!-- … -->) und die Klassen wie class="wc-px" bitte stehen lassen.
+- Wenn ein Wunsch von mir gegen diese Regeln verstoßen würde, sag es mir kurz, bevor du ihn umsetzt.
+
+Bestätige kurz, dass du alles verstanden hast, und öffne dann die Datei im Canvas.
