@@ -26,6 +26,17 @@ open newsletter/willkommensmail/vorschau/willkommensmail-vorschau.html
 
 Der Ordner `newsletter/` gehört nicht zur Website und wird beim Upload nicht mitgenommen (das Upload-ZIP enthält nur die Seitendateien).
 
+## Überarbeitung mit ChatGPT (Paket für Carmen)
+
+Ordner `paket-carmen/` (auch als ZIP weitergegeben):
+
+- `0-Anleitung-fuer-Carmen.txt`: Schritt-für-Schritt-Anleitung
+- `1-Prompt-fuer-ChatGPT.txt`: Start-Prompt mit inhaltlichen und technischen Regeln (Tabellenlayout, Inline-CSS, Platzhalter unverändert, keine Preise oder Versprechen); ChatGPT öffnet die Datei in Canvas mit Vorschau
+- `willkommensmail-entwurf-1.html`: die Vorlage. `{{LOGO_URL}}` ist hier durch eine öffentliche, auf den Commit festgelegte GitHub-Adresse des Logos ersetzt, damit das Logo in der Vorschau erscheint. Alle anderen Platzhalter bleiben.
+- `so-sieht-sie-aus.png`: Referenzbild bei 390 px
+
+**Rückweg:** Carmen schickt `willkommensmail-carmen.html` zurück. Vor der Übernahme: Unterschiede zur Vorlage prüfen, Logo-Adresse wieder durch `{{LOGO_URL}}` ersetzen, Platzhalter und Tabellenlayout kontrollieren, Textversion `willkommensmail.txt` angleichen, Vorschau neu erzeugen und bei 390 px und Desktopbreite ansehen.
+
 ## Betreff und Vorschauzeile
 
 **Betreff (Vorschlag):** Willkommen bei Wochen Champion – so gelingt der Start

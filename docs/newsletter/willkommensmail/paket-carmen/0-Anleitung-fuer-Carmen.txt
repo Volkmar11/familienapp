@@ -1,0 +1,56 @@
+WILLKOMMENSMAIL „WOCHEN CHAMPION“ – ÜBERARBEITEN MIT CHATGPT
+=============================================================
+
+Hallo Carmen,
+
+in diesem Paket steckt der erste Entwurf der Willkommensmail für den Newsletter. Du kannst ihn mit ChatGPT überarbeiten und siehst jede Änderung sofort in einer Vorschau.
+
+INHALT DES PAKETS
+- 0-Anleitung-fuer-Carmen.txt   → diese Anleitung
+- 1-Prompt-fuer-ChatGPT.txt     → Text zum Hineinkopieren in ChatGPT
+- willkommensmail-entwurf-1.html → die Mail selbst
+- so-sieht-sie-aus.png           → Bild der Mail auf dem Handy, zum Vergleich
+
+Tipp: Die Mail kannst du dir auch direkt ansehen. Einfach „willkommensmail-entwurf-1.html“ doppelt anklicken, dann öffnet sie sich im Browser.
+
+
+SO GEHT'S
+---------
+
+1. ChatGPT öffnen und einen NEUEN Chat beginnen.
+
+2. Die Datei „willkommensmail-entwurf-1.html“ in den Chat ziehen
+   (oder über die Büroklammer bzw. das Plus-Zeichen anhängen).
+
+3. Den gesamten Text aus „1-Prompt-fuer-ChatGPT.txt“ kopieren,
+   ins Eingabefeld einfügen und abschicken.
+
+4. ChatGPT öffnet die Mail rechts in einem eigenen Fenster („Canvas“).
+   Dort oben rechts auf „Vorschau“ bzw. „Preview“ klicken – dann siehst du die Mail so, wie sie aussehen wird.
+   Falls ChatGPT kein Canvas öffnet: „Bitte öffne die Datei in Canvas“ schreiben.
+
+5. Jetzt einfach im Chat sagen, was du ändern möchtest, zum Beispiel:
+   - „Mach die Begrüßung etwas persönlicher und kürzer.“
+   - „Ersetze bei 7–10 Jahren die Zimmerpflanzen durch eine andere Aufgabe.“
+   - „Formuliere die Tipps lockerer.“
+   - „Mach mir drei Vorschläge für einen anderen Betreff.“
+   Nach jeder Änderung wieder auf „Vorschau“ schauen.
+
+6. Wenn du zufrieden bist: „fertig“ schreiben.
+   ChatGPT gibt dann die vollständige Datei zum Herunterladen aus.
+   Falls nicht: im Canvas oben rechts auf das Download- bzw. Kopier-Symbol gehen
+   und den Code als Datei „willkommensmail-carmen.html“ speichern.
+
+7. Die Datei „willkommensmail-carmen.html“ an Marcus zurückschicken.
+   Gern dazu ein paar Stichworte, was du geändert hast und warum,
+   und ggf. deinen Betreffvorschlag.
+
+
+BITTE BEACHTEN
+--------------
+- Stellen wie {{UNSUBSCRIBE_URL}} oder {{ABSENDER_NAME}} sind Platzhalter. Sie sehen in der Vorschau komisch aus, müssen aber genau so bleiben – sie werden erst beim Versand automatisch ersetzt.
+- Die Links „abbestellen“, „Impressum“ und „Datenschutz“ funktionieren in der Vorschau noch nicht. Das ist Absicht.
+- Es geht vor allem um Texte und Ton. Farben, Breite und Aufbau bitte nur ändern, wenn Marcus das möchte.
+- Nichts davon wird verschickt. Die Mail ist ein Entwurf.
+
+Danke dir!
